@@ -1,0 +1,838 @@
+/* Úkolník – papír, inkoust a zvýrazňovač na dnešek. */
+
+:root {
+  --paper: #edf0ee;
+  --sheet: #f8faf9;
+  --ink: #17313a;
+  --ink-2: #4f666d;
+  --line: #d2dbd8;
+  --marker: #f5d94a;
+  --marker-ink: #17313a;
+  --late: #b03d2a;
+  --focus: #2b6f8a;
+  --tag-s: 52%;
+  --tag-l: 42%;
+
+  --display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible Next", "Atkinson Hyperlegible", ui-sans-serif, system-ui, sans-serif;
+
+  --r-field: 14px;
+  --r-small: 8px;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #10191c;
+    --sheet: #172427;
+    --ink: #e2ebe8;
+    --ink-2: #93a7a7;
+    --line: #29393d;
+    --marker: #d9bb2e;
+    --marker-ink: #10191c;
+    --late: #ee8a76;
+    --focus: #7cc3dc;
+    --tag-s: 45%;
+    --tag-l: 68%;
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 17px;
+  line-height: 1.45;
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.app {
+  max-width: 660px;
+  margin: 0 auto;
+  padding: max(28px, env(safe-area-inset-top)) 16px 120px;
+}
+
+/* Hlavička: den jako hlavní prvek, dnešní datum podtržené zvýrazňovačem */
+.head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.head h1 {
+  margin: 0;
+  font-family: var(--display);
+  font-weight: 700;
+  line-height: 0.95;
+  letter-spacing: -0.02em;
+  display: flex;
+  flex-direction: column;
+}
+
+.head-day {
+  font-size: clamp(2.6rem, 9vw, 3.6rem);
+}
+
+.head-num {
+  font-size: clamp(1.4rem, 5vw, 1.8rem);
+  font-weight: 500;
+  margin-top: 6px;
+  align-self: flex-start;
+  padding: 0 6px;
+  margin-left: -6px;
+  background: linear-gradient(transparent 52%, var(--marker) 52%, var(--marker) 92%, transparent 92%);
+  color: var(--ink);
+}
+
+.head-sum {
+  margin: 10px 0 0;
+  color: var(--ink-2);
+}
+
+.head-out {
+  margin-top: 6px;
+}
+
+.demo {
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  border-left: 3px solid var(--marker);
+  padding: 2px 0 2px 10px;
+  margin: 0 0 16px;
+}
+
+/* Rychlé zadání */
+.quick {
+  position: relative;
+  z-index: 5;
+  margin-bottom: 18px;
+}
+
+.quick-field {
+  display: flex;
+  align-items: center;
+  background: var(--sheet);
+  border: 1.5px solid var(--line);
+  border-radius: var(--r-field);
+  padding: 4px 4px 4px 14px;
+  transition: border-color 0.15s;
+}
+
+.quick-field:focus-within {
+  border-color: var(--ink);
+}
+
+.quick-plus {
+  font-family: var(--display);
+  font-size: 1.5rem;
+  color: var(--ink-2);
+  margin-right: 8px;
+  line-height: 1;
+}
+
+.quick-field input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  padding: 10px 0;
+  outline: none;
+}
+
+.quick-field input::placeholder {
+  color: var(--ink-2);
+  opacity: 0.8;
+}
+
+.quick-add {
+  border: 0;
+  border-radius: 10px;
+  padding: 9px 14px;
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 700;
+}
+
+.quick-add:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.quick-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.pill {
+  font-size: 0.82rem;
+  padding: 2px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--sheet);
+}
+
+.pill-date {
+  background: var(--marker);
+  color: var(--marker-ink);
+  border-color: transparent;
+  font-weight: 700;
+}
+
+.pill-imp {
+  border-color: var(--late);
+  color: var(--late);
+}
+
+/* Nabídka štítků */
+.suggest {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  list-style: none;
+  margin: 0;
+  padding: 6px;
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px -12px rgb(16 30 34 / 0.35);
+  z-index: 20;
+}
+
+.suggest li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: var(--r-small);
+  cursor: pointer;
+}
+
+.suggest li.is-on,
+.suggest li:hover {
+  background: var(--paper);
+}
+
+.suggest-name {
+  flex: 1;
+  font-weight: 700;
+}
+
+.suggest-count {
+  color: var(--ink-2);
+  font-size: 0.82rem;
+}
+
+.suggest .suggest-new {
+  cursor: default;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+}
+
+.suggest .suggest-new:hover {
+  background: none;
+}
+
+/* Štítky */
+.tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.8rem;
+  padding: 1px 8px 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: transparent;
+  white-space: nowrap;
+  color: var(--ink);
+}
+
+button.tag:hover {
+  border-color: var(--ink-2);
+}
+
+.tag.is-active {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--ink);
+}
+
+.tag-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: hsl(var(--h) var(--tag-s) var(--tag-l));
+  flex: none;
+}
+
+/* Pohledy */
+.tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1.5px solid var(--line);
+  margin-bottom: 12px;
+}
+
+.tab {
+  border: 0;
+  background: none;
+  padding: 8px 12px 10px;
+  color: var(--ink-2);
+  font-weight: 700;
+  position: relative;
+}
+
+.tab.is-active {
+  color: var(--ink);
+}
+
+.tab.is-active::after {
+  content: "";
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  bottom: -1.5px;
+  height: 3px;
+  border-radius: 3px;
+  background: var(--ink);
+}
+
+.filters {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 2px 0 10px;
+  scrollbar-width: none;
+}
+
+.filters .tag {
+  padding: 4px 10px 4px 8px;
+  font-size: 0.85rem;
+}
+
+.filters-clear {
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  white-space: nowrap;
+}
+
+/* Skupiny a řádky */
+.group {
+  margin: 8px 0 22px;
+  border-radius: 12px;
+  transition: background 0.15s;
+}
+
+.group.is-drop {
+  background: color-mix(in srgb, var(--marker) 25%, transparent);
+  outline: 2px dashed var(--marker);
+}
+
+.group-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 4px 2px 6px;
+}
+
+.group h2 {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.tone-today h2 {
+  padding: 0 4px;
+  margin-left: -4px;
+  background: linear-gradient(transparent 55%, var(--marker) 55%, var(--marker) 92%, transparent 92%);
+}
+
+.tone-overdue h2 {
+  color: var(--late);
+}
+
+.tone-later h2,
+.tone-none h2 {
+  color: var(--ink-2);
+}
+
+.group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.row {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  column-gap: 10px;
+  padding: 8px 2px;
+  border-bottom: 1px solid var(--line);
+}
+
+.row:last-child {
+  border-bottom: 0;
+}
+
+.row-tags {
+  grid-column: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.check {
+  width: 26px;
+  height: 26px;
+  margin-top: 1px;
+  border-radius: 50%;
+  border: 1.8px solid var(--ink-2);
+  background: transparent;
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+
+.check svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: var(--paper);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0;
+}
+
+.check:hover svg {
+  opacity: 1;
+  stroke: var(--ink-2);
+}
+
+.row.is-imp .check {
+  border-color: var(--late);
+  border-width: 2.4px;
+}
+
+.row.is-done .check {
+  background: var(--ink-2);
+  border-color: var(--ink-2);
+}
+
+.row.is-done .check svg {
+  opacity: 1;
+  stroke: var(--paper);
+}
+
+.row-body {
+  border: 0;
+  background: none;
+  text-align: left;
+  padding: 2px 0;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.row-title {
+  overflow-wrap: anywhere;
+}
+
+.row.is-done .row-title {
+  text-decoration: line-through;
+  color: var(--ink-2);
+}
+
+.row-meta {
+  display: flex;
+  gap: 10px;
+  font-size: 0.82rem;
+  color: var(--ink-2);
+}
+
+.row-meta:empty {
+  display: none;
+}
+
+.row-time {
+  font-weight: 700;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.row-date.is-late {
+  color: var(--late);
+  font-weight: 700;
+}
+
+.row[draggable="true"] {
+  cursor: grab;
+}
+
+.empty {
+  color: var(--ink-2);
+  margin: 6px 2px;
+}
+
+.empty.small {
+  font-size: 0.88rem;
+  margin: 0 2px 4px;
+}
+
+.peek {
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--ink-2);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.error {
+  color: var(--late);
+  font-weight: 700;
+}
+
+/* Tlačítka */
+.btn {
+  border: 0;
+  border-radius: 10px;
+  padding: 10px 18px;
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: 700;
+}
+
+.btn:disabled {
+  opacity: 0.4;
+}
+
+.btn-ghost {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 8px 14px;
+  background: transparent;
+  color: var(--ink);
+}
+
+.btn-ghost.small {
+  font-size: 0.85rem;
+  padding: 4px 10px;
+}
+
+.btn-ghost.danger {
+  color: var(--late);
+  border-color: transparent;
+  padding-left: 0;
+}
+
+.chip {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: transparent;
+  font-size: 0.9rem;
+}
+
+.chip.is-active {
+  background: var(--marker);
+  color: var(--marker-ink);
+  border-color: var(--marker);
+  font-weight: 700;
+}
+
+/* Úprava úkolu: na telefonu list zespodu, na počítači okno uprostřed */
+.sheet {
+  border: 0;
+  padding: 0;
+  background: var(--sheet);
+  color: var(--ink);
+  border-radius: 18px;
+  width: min(560px, calc(100vw - 32px));
+  max-height: calc(100dvh - 40px);
+  box-shadow: 0 30px 80px -30px rgb(0 0 0 / 0.5);
+}
+
+.sheet::backdrop {
+  background: rgb(16 25 28 / 0.45);
+}
+
+.sheet-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 20px;
+}
+
+.sheet-title {
+  font-family: var(--display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  border: 0;
+  background: transparent;
+  resize: none;
+  padding: 0;
+  outline: none;
+  line-height: 1.2;
+}
+
+.sheet-moves {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.sheet-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.sheet-row label,
+.sheet-label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  position: relative;
+}
+
+.sheet input[type="date"],
+.sheet input[type="time"],
+.sheet-label textarea,
+.tagfield-box {
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  padding: 9px 10px;
+  color: var(--ink);
+  font-size: 1rem;
+  width: 100%;
+}
+
+.sheet-label textarea {
+  resize: vertical;
+}
+
+.tagfield {
+  position: relative;
+}
+
+.tagfield-box {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 6px 8px;
+}
+
+.tagfield-box:focus-within,
+.sheet input:focus,
+.sheet-label textarea:focus {
+  border-color: var(--ink);
+  outline: none;
+}
+
+.tagfield-box input {
+  border: 0;
+  background: transparent;
+  outline: none;
+  flex: 1;
+  min-width: 100px;
+  padding: 4px 2px;
+}
+
+.tag-removable {
+  padding: 0;
+  border: 0;
+  gap: 0;
+}
+
+.tag-removable button {
+  border: 0;
+  background: none;
+  color: var(--ink-2);
+  padding: 0 6px 0 2px;
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.sheet-check {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.sheet-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--late);
+}
+
+.sheet-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding-top: 4px;
+}
+
+.spacer {
+  flex: 1;
+}
+
+/* Oznámení */
+.toast-wrap {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: max(16px, env(safe-area-inset-bottom));
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.toast {
+  pointer-events: auto;
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  background: var(--ink);
+  color: var(--paper);
+  padding: 10px 16px;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  animation: toast-in 0.2s ease-out;
+}
+
+.toast button {
+  border: 0;
+  background: none;
+  color: var(--marker);
+  font-weight: 700;
+  padding: 0;
+}
+
+@keyframes toast-in {
+  from {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+}
+
+/* Přihlášení */
+.login {
+  max-width: 420px;
+  margin: 18vh auto 0;
+  padding: 0 16px;
+}
+
+.login h1 {
+  font-family: var(--display);
+  font-size: 3rem;
+  margin: 0 0 4px;
+}
+
+.login p {
+  color: var(--ink-2);
+}
+
+/* Telefon: zadávací pole dole u palce, úprava jako list zespodu */
+@media (max-width: 640px) {
+  .app {
+    padding-top: max(20px, env(safe-area-inset-top));
+    padding-bottom: calc(110px + env(safe-area-inset-bottom));
+  }
+
+  .quick {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+    background: color-mix(in srgb, var(--paper) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-top: 1px solid var(--line);
+  }
+
+  .quick .suggest {
+    top: auto;
+    bottom: calc(100% + 4px);
+    left: 12px;
+    right: 12px;
+  }
+
+  .quick-preview {
+    position: absolute;
+    bottom: calc(100% + 6px);
+    left: 12px;
+  }
+
+  .toast-wrap {
+    bottom: calc(84px + env(safe-area-inset-bottom));
+  }
+
+  .sheet {
+    margin: auto 0 0;
+    width: 100vw;
+    max-width: 100vw;
+    border-radius: 18px 18px 0 0;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Ve tmavém režimu zvýrazňovač jako podtržení – světlý text na žluté by nebyl čitelný */
+@media (prefers-color-scheme: dark) {
+  .head-num,
+  .tone-today h2 {
+    background: linear-gradient(transparent 86%, var(--marker) 86%);
+  }
+}
+
+.quick:has(.suggest) .quick-preview {
+  display: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
