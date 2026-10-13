@@ -10,8 +10,15 @@ export interface QuickAddHandle {
   focus(): void;
 }
 
-export const QuickAdd = forwardRef<QuickAddHandle, { tagUsage: TagUsage[]; onAdd: (p: ParsedTask) => Promise<void> }>(
-  function QuickAdd({ tagUsage, onAdd }, ref) {
+interface Props {
+  tagUsage: TagUsage[];
+  onAdd: (p: ParsedTask) => Promise<void>;
+  /** režim stopek: bez termínů, jiný popisek a tlačítko */
+  timer?: boolean;
+}
+
+export const QuickAdd = forwardRef<QuickAddHandle, Props>(
+  function QuickAdd({ tagUsage, onAdd, timer }, ref) {
     const [text, setText] = useState("");
     const [caret, setCaret] = useState(0);
     const [index, setIndex] = useState(0);
@@ -23,7 +30,14 @@ export const QuickAdd = forwardRef<QuickAddHandle, { tagUsage: TagUsage[]; onAdd
 
     const token = useMemo(() => tagTokenAt(text, caret), [text, caret]);
     const known = useMemo(() => tagUsage.map((t) => t.name), [tagUsage]);
-    const parsed = useMemo(() => (text.trim() ? parseQuickAdd(text, { knownTags: known }) : null), [text, known]);
+    const parsed = useMemo(() => {
+      if (!text.trim()) return null;
+      const p = parseQuickAdd(text, { knownTags: known });
+      if (!timer) return p;
+      // u stopek se termín nehledá – „pátek“ v názvu zůstane
+      const title = text.split(/\s+/).filter((w) => !w.startsWith("#")).join(" ").trim();
+      return { ...p, title, dueDate: null, dueTime: null, important: false };
+    }, [text, known, timer]);
     const items = useMemo(() => {
       if (!token) return [];
       const already = parsed?.tags.filter((t) => t.toLowerCase() !== token.query.toLowerCase()) ?? [];
@@ -46,10 +60,10 @@ export const QuickAdd = forwardRef<QuickAddHandle, { tagUsage: TagUsage[]; onAdd
     };
 
     const submit = async () => {
-      if (!parsed || busy) return;
+      if (busy || (!parsed && !timer)) return;
       setBusy(true);
       try {
-        await onAdd(parsed);
+        await onAdd(parsed ?? { title: "", dueDate: null, dueTime: null, tags: [], important: false });
         setText("");
         setCaret(0);
       } finally {
@@ -95,7 +109,7 @@ export const QuickAdd = forwardRef<QuickAddHandle, { tagUsage: TagUsage[]; onAdd
 
     return (
       <form
-        className="quick"
+        className={timer ? "quick quick-timer" : "quick"}
         onSubmit={(e) => {
           e.preventDefault();
           submit();
@@ -103,7 +117,7 @@ export const QuickAdd = forwardRef<QuickAddHandle, { tagUsage: TagUsage[]; onAdd
       >
         <div className="quick-field">
           <span className="quick-plus" aria-hidden>
-            +
+            {timer ? "▶" : "+"}
           </span>
           <input
             ref={input}
@@ -119,8 +133,8 @@ export const QuickAdd = forwardRef<QuickAddHandle, { tagUsage: TagUsage[]; onAdd
             onClick={(e) => sync(e.currentTarget)}
             onBlur={() => setClosed(true)}
             onFocus={() => setClosed(false)}
-            placeholder="Nový úkol… např. faktura Novák v pátek #really"
-            aria-label="Nový úkol"
+            placeholder={timer ? "Na čem děláš? např. elektroinstalace #maringotka" : "Nový úkol… např. faktura Novák v pátek #really"}
+            aria-label={timer ? "Spustit stopky" : "Nový úkol"}
             autoComplete="off"
             enterKeyHint="done"
             role="combobox"
@@ -128,8 +142,8 @@ export const QuickAdd = forwardRef<QuickAddHandle, { tagUsage: TagUsage[]; onAdd
             aria-controls="quick-suggest"
             aria-activedescendant={open && items.length ? `quick-suggest-${index}` : undefined}
           />
-          <button type="submit" className="quick-add" disabled={!parsed || busy}>
-            Přidat
+          <button type="submit" className="quick-add" disabled={timer ? busy : !parsed || busy}>
+            {timer ? "Spustit" : "Přidat"}
           </button>
         </div>
         {open && <TagSuggest id="quick-suggest" items={items} index={index} query={token!.query} onPick={pick} />}

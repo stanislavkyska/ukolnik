@@ -6,7 +6,7 @@ import { suggestTags, type TagUsage } from "@/lib/tags";
 import type { Task, TaskPatch } from "@/lib/types";
 import { Tag, TagSuggest } from "./TagSuggest";
 
-function TagField({ value, onChange, usage }: { value: string[]; onChange: (v: string[]) => void; usage: TagUsage[] }) {
+export function TagField({ value, onChange, usage }: { value: string[]; onChange: (v: string[]) => void; usage: TagUsage[] }) {
   const [q, setQ] = useState("");
   const [index, setIndex] = useState(0);
   const [focused, setFocused] = useState(false);

@@ -4,6 +4,7 @@
 // režim) do prohlížeče, aby šla aplikace vyzkoušet ještě před nastavením.
 
 import { supabaseBrowser } from "./supabase/client.ts";
+import { TIME_COLUMNS, type TimeEntry, type TimeEntryPatch } from "./time.ts";
 import { TASK_COLUMNS, type Task, type TaskPatch } from "./types.ts";
 
 export interface NewTask {
@@ -15,6 +16,14 @@ export interface NewTask {
   important: boolean;
 }
 
+export interface NewTimeEntry {
+  title: string;
+  tags: string[];
+  task_id: string | null;
+  started_at?: string;
+  ended_at?: string | null;
+}
+
 export interface TaskStore {
   demo: boolean;
   list(): Promise<Task[]>;
@@ -23,6 +32,14 @@ export interface TaskStore {
   updateMany(ids: string[], patch: TaskPatch): Promise<void>;
   remove(id: string): Promise<void>;
   signOut(): Promise<void>;
+  /** záznamy času od data (ISO okamžik) + případné běžící stopky */
+  listTime(sinceISO: string): Promise<TimeEntry[]>;
+  /** zastaví běžící stopky a spustí nové */
+  startTimer(e: NewTimeEntry): Promise<{ started: TimeEntry; stopped: TimeEntry | null }>;
+  /** ruční záznam (už ukončený) */
+  createTime(e: NewTimeEntry): Promise<TimeEntry>;
+  updateTime(id: string, patch: TimeEntryPatch): Promise<TimeEntry>;
+  removeTime(id: string): Promise<void>;
 }
 
 export const DEMO = !process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -63,10 +80,51 @@ function supabaseStore(): TaskStore {
       await sb.auth.signOut();
       window.location.href = "/login";
     },
+    async listTime(sinceISO) {
+      const { data, error } = await sb
+        .from("time_entries")
+        .select(TIME_COLUMNS)
+        .or(`started_at.gte.${sinceISO},ended_at.is.null`)
+        .order("started_at", { ascending: false })
+        .limit(2000);
+      if (error) throw error;
+      return data as TimeEntry[];
+    },
+    async startTimer(e) {
+      const now = new Date().toISOString();
+      const { data: stopped, error: e1 } = await sb
+        .from("time_entries")
+        .update({ ended_at: now })
+        .is("ended_at", null)
+        .select(TIME_COLUMNS);
+      if (e1) throw e1;
+      const { data, error } = await sb
+        .from("time_entries")
+        .insert({ title: e.title, tags: e.tags, task_id: e.task_id, started_at: now })
+        .select(TIME_COLUMNS)
+        .single();
+      if (error) throw error;
+      return { started: data as TimeEntry, stopped: ((stopped as TimeEntry[]) ?? [])[0] ?? null };
+    },
+    async createTime(e) {
+      const { data, error } = await sb.from("time_entries").insert(e).select(TIME_COLUMNS).single();
+      if (error) throw error;
+      return data as TimeEntry;
+    },
+    async updateTime(id, patch) {
+      const { data, error } = await sb.from("time_entries").update(patch).eq("id", id).select(TIME_COLUMNS).single();
+      if (error) throw error;
+      return data as TimeEntry;
+    },
+    async removeTime(id) {
+      const { error } = await sb.from("time_entries").delete().eq("id", id);
+      if (error) throw error;
+    },
   };
 }
 
 const KEY = "ukolnik-demo-tasks";
+const TIME_KEY = "ukolnik-demo-time";
 
 function demoStore(): TaskStore {
   const read = (): Task[] => {
@@ -84,6 +142,23 @@ function demoStore(): TaskStore {
     }
   };
   let mem: Task[] | null = null;
+  let tmem: TimeEntry[] | null = null;
+  const tall = (): TimeEntry[] => {
+    if (tmem) return tmem;
+    try {
+      tmem = JSON.parse(localStorage.getItem(TIME_KEY) ?? "[]");
+    } catch {
+      tmem = [];
+    }
+    return tmem!;
+  };
+  const twrite = () => {
+    try {
+      localStorage.setItem(TIME_KEY, JSON.stringify(tmem));
+    } catch {
+      /* jen v paměti */
+    }
+  };
   const all = () => (mem ??= read());
   const apply = (t: Task, patch: TaskPatch): Task => {
     const next = { ...t, ...patch, updated_at: new Date().toISOString() };
@@ -120,6 +195,36 @@ function demoStore(): TaskStore {
       write(mem);
     },
     async signOut() {},
+    async listTime(sinceISO) {
+      return tall().filter((e) => e.started_at >= sinceISO || !e.ended_at);
+    },
+    async startTimer(e) {
+      const now = new Date().toISOString();
+      let stopped: TimeEntry | null = null;
+      tmem = tall().map((x) => (x.ended_at ? x : (stopped = { ...x, ended_at: now })));
+      const started: TimeEntry = { id: crypto.randomUUID(), created_at: now, title: e.title, tags: e.tags, task_id: e.task_id, started_at: now, ended_at: null };
+      tmem = [started, ...tmem];
+      twrite();
+      return { started, stopped };
+    },
+    async createTime(e) {
+      const now = new Date().toISOString();
+      const entry: TimeEntry = { id: crypto.randomUUID(), created_at: now, started_at: now, ended_at: now, ...e };
+      tmem = [entry, ...tall()];
+      twrite();
+      return entry;
+    },
+    async updateTime(id, patch) {
+      let out: TimeEntry | undefined;
+      tmem = tall().map((x) => (x.id === id ? (out = { ...x, ...patch }) : x));
+      twrite();
+      if (!out) throw new Error("Záznam neexistuje");
+      return out;
+    },
+    async removeTime(id) {
+      tmem = tall().filter((x) => x.id !== id);
+      twrite();
+    },
   };
 }
 

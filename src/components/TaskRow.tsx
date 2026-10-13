@@ -12,6 +12,8 @@ export function TaskRow({
   onToggle,
   onOpen,
   onTag,
+  onTimer,
+  timing,
 }: {
   task: Task;
   today: string;
@@ -19,11 +21,15 @@ export function TaskRow({
   onToggle: (t: Task) => void;
   onOpen: (t: Task) => void;
   onTag?: (tag: string) => void;
+  /** spustit / zastavit stopky na tomto úkolu */
+  onTimer?: (t: Task) => void;
+  /** na tomto úkolu právě běží stopky */
+  timing?: boolean;
 }) {
   const overdue = !task.done && task.due_date && task.due_date < today;
   return (
     <li
-      className={`row${task.done ? " is-done" : ""}${task.important ? " is-imp" : ""}`}
+      className={`row${task.done ? " is-done" : ""}${task.important ? " is-imp" : ""}${onTimer && !task.done ? " has-timer" : ""}`}
       draggable={!task.done}
       onDragStart={(e) => {
         e.dataTransfer.setData("text/task-id", task.id);
@@ -51,6 +57,17 @@ export function TaskRow({
           {task.notes && <span className="row-note">poznámka</span>}
         </span>
       </button>
+      {onTimer && !task.done && (
+        <button
+          type="button"
+          className={timing ? "row-timer is-on" : "row-timer"}
+          onClick={() => onTimer(task)}
+          aria-label={timing ? `Zastavit stopky: ${task.title}` : `Spustit stopky: ${task.title}`}
+          title={timing ? "Zastavit stopky" : "Spustit stopky"}
+        >
+          {timing ? <span className="sq" aria-hidden /> : "▶"}
+        </button>
+      )}
       {task.tags.length > 0 && (
         <span className="row-tags">
           {task.tags.map((t) => (
