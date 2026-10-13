@@ -14,23 +14,34 @@ create table if not exists public.tasks (
   done_at      timestamptz,
   created_at   timestamptz not null default now(),
   updated_at   timestamptz not null default now(),
-  -- připraveno pro synchronizaci s Google Kalendářem (krok 3)
+  -- synchronizace s Google Kalendářem
   gcal_event_id text,
   gcal_etag     text,
-  gcal_synced_at timestamptz
+  gcal_synced_at timestamptz,
+  gcal_dirty    boolean not null default true
 );
 
 create index if not exists tasks_user_open_idx on public.tasks (user_id, done, due_date);
 create index if not exists tasks_tags_idx on public.tasks using gin (tags);
 create index if not exists tasks_deadline_idx on public.tasks (user_id, deadline) where done = false;
 
--- updated_at se nastavuje samo
+-- updated_at, done_at a příznak pro kalendář se nastavují samy
 create or replace function public.touch_updated_at() returns trigger
 language plpgsql as $$
 begin
-  new.updated_at = now();
   if new.done and not coalesce(old.done, false) then new.done_at = now(); end if;
   if not new.done then new.done_at = null; end if;
+
+  if new.gcal_synced_at is distinct from old.gcal_synced_at then
+    new.gcal_dirty = false;
+  elsif (new.title, new.notes, new.due_date, new.due_time, new.deadline, new.tags, new.done)
+        is distinct from
+        (old.title, old.notes, old.due_date, old.due_time, old.deadline, old.tags, old.done) then
+    new.gcal_dirty = true;
+    new.updated_at = now();
+  else
+    new.updated_at = now();
+  end if;
   return new;
 end $$;
 
@@ -78,3 +89,20 @@ create or replace view public.tag_usage with (security_invoker = true) as
     select e.user_id, tag as name, e.started_at as used_at from public.time_entries e, unnest(e.tags) as tag
   ) u
   group by user_id, name;
+
+-- Připojený Google účet. Tokeny čte jen server (service role) – žádná pravidla pro prohlížeč.
+create table if not exists public.google_accounts (
+  user_id           uuid primary key references auth.users(id) on delete cascade,
+  email             text,
+  refresh_token     text not null,
+  access_token      text,
+  access_expires_at timestamptz,
+  tasks_calendar_id text,
+  show_calendars    text[],          -- null = podle výběru v Google Kalendáři
+  write_tasks       boolean not null default true,
+  last_sync_at      timestamptz,
+  created_at        timestamptz not null default now(),
+  updated_at        timestamptz not null default now()
+);
+
+alter table public.google_accounts enable row level security;

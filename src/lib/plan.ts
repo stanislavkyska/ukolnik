@@ -39,8 +39,9 @@ export function dueOn(tasks: Task[], date: string): Task[] {
   return tasks.filter((t) => !t.done && when(t) === date).sort(compareTasks);
 }
 
-/** Pohled „Plán“: po termínu, dalších 14 dní po dnech, později, bez termínu. */
-export function planGroups(tasks: Task[], today: string, days = 14): Group[] {
+/** Pohled „Plán“: po termínu, dalších 14 dní po dnech, později, bez termínu.
+ *  busyDates = dny s událostmi v kalendáři (zobrazí se, i když nemají úkoly). */
+export function planGroups(tasks: Task[], today: string, days = 14, busyDates?: Set<string>): Group[] {
   const open = tasks.filter((t) => !t.done);
   const groups: Group[] = [];
   const od = overdue(open, today);
@@ -49,7 +50,7 @@ export function planGroups(tasks: Task[], today: string, days = 14): Group[] {
     const d = addDays(today, i);
     const list = dueOn(open, d);
     // dnešek a zítřek ukazujeme i prázdné, ať je kam přesouvat
-    if (list.length || i < 2) {
+    if (list.length || i < 2 || busyDates?.has(d)) {
       groups.push({ key: d, label: dateLabel(d, today, { long: true }), date: d, tasks: list, tone: i === 0 ? "today" : undefined });
     }
   }

@@ -36,11 +36,27 @@ Zkratka na počítači: `N` nebo `/` skočí do zadávání.
 - Záznam jde upravit (čas od–do, štítky), smazat, přidat ručně a ▶ u záznamu pokračuje ve stejné činnosti.
 - **CSV** se otevře v Excelu (datum, od, do, hodiny s desetinnou čárkou, činnost, štítky).
 
-Štítky jsou společné pro úkoly i čas (a později kalendář) – našeptávač nabízí všechny.
+Štítky jsou společné pro úkoly, čas i kalendář – našeptávač nabízí všechny.
 
 ## Počasí
 
 V hlavičce vpravo je aktuální počasí. Kliknutím rozbalíš předpověď na 12 hodin a 7 dní, kliknutím na název místa ho změníš (vyhledání obce, poslední místa, „Moje poloha“). Výchozí místo je Šenov u Ostravy, vybrané místo si pamatuje každé zařízení zvlášť. V pohledu Plán je u každého dne ikona počasí a teploty. Data: Open-Meteo (zdarma, bez klíče).
+
+## Google Kalendář
+
+- V pohledech **Dnes** a **Plán** jsou události ze zvolených kalendářů (tvůj, rodinný…). Klik otevře událost v Google Kalendáři.
+- Úkoly s datem se zapisují do kalendáře **Úkoly** (založí se sám): bez času jako celodenní, s časem jako 30 min, úkol jen s deadlinem jako `⚑ název`.
+- **Obousměrně:** přesuneš událost v kalendáři → přesune se úkol. Smažeš ji → úkol přijde o datum. Přidáš událost přímo do kalendáře Úkoly → vznikne úkol. Hotový úkol z kalendáře zmizí. Při změně na obou stranách vyhrává novější.
+- **Štítky v kalendáři:** napiš `#štítek` do názvu nebo popisu události (i v rodinném kalendáři) – zobrazí se u události a filtr podle štítku ji ukáže.
+- Nastavení (které kalendáře zobrazovat, zápis úkolů, odpojení) je pod tlačítkem **Kalendář** dole na stránce.
+
+### Nastavení napojení (jednou)
+1. [Google Cloud Console](https://console.cloud.google.com) → projekt `ukolnik` → **APIs & Services → Library** → vyhledej **Google Calendar API** → **Enable**.
+2. **Google Auth Platform → Clients** → tvůj klient → **Authorized redirect URIs** → přidej `https://ADRESA-APLIKACE/api/google/callback` → Save.
+3. **Google Auth Platform → Audience** → **Publish app** (v testovacím režimu Google přístup ke kalendáři po 7 dnech zruší). Při připojení pak Google ukáže varování „aplikace není ověřená“ → *Advanced* → *Go to Úkolník*. Je to tvoje vlastní aplikace, ověření není potřeba.
+4. Ve Vercelu doplň `GOOGLE_CLIENT_ID` a `GOOGLE_CLIENT_SECRET` (stejné hodnoty jako v Supabase u přihlášení Google) a nasaď znovu.
+5. V Supabase spusť `supabase/004_calendar.sql`.
+6. V aplikaci dole **Připojit kalendář**.
 
 ## Spuštění
 
@@ -72,7 +88,7 @@ Hlavička `Authorization: Bearer <AGENT_API_TOKEN>`.
 
 | | |
 |---|---|
-| `GET /api/agent/brief` | podklad pro ranní přehled: po termínu, dnes, příštích 7 dní + hotový text |
+| `GET /api/agent/brief` | podklad pro ranní přehled: dnešní události z kalendáře, po termínu, dnes, příštích 7 dní + hotový text |
 | `GET /api/agent/tasks?view=today\|overdue\|week\|open\|done\|all&tag=really` | výpis úkolů |
 | `POST /api/agent/tasks` `{"text": "faktura Novák v pátek #really"}` | nový úkol stejně jako z pole v aplikaci |
 | `PATCH /api/agent/tasks/:id` `{"due_date": "2026-10-20"}` | úprava (title, notes, due_date, due_time, tags, important, done) |
@@ -82,8 +98,8 @@ Hlavička `Authorization: Bearer <AGENT_API_TOKEN>`.
 
 ## Další kroky
 1. ~~Úkolník: zadání, termíny, štítky, přesouvání~~
-2. Čtení Google Kalendáře (tvůj + rodinný) – události v pohledech Dnes a Plán
-3. Zápis úkolů do kalendáře „Úkoly“ a zpětná synchronizace přesunů
+2. ~~Čtení Google Kalendáře (tvůj + rodinný) – události v pohledech Dnes a Plán~~
+3. ~~Zápis úkolů do kalendáře „Úkoly“ a zpětná synchronizace přesunů~~
 4. Ranní přehled jako naplánovaná úloha (push + e-mail)
 
 ## Technika

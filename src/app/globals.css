@@ -1525,6 +1525,160 @@ button.tag:hover {
   }
 }
 
+/* Události z kalendáře */
+.evs {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ev {
+  border-left: 4px solid var(--cal);
+  border-radius: 0;
+  background: color-mix(in srgb, var(--cal) 9%, transparent);
+  padding: 5px 10px;
+}
+
+.ev-body {
+  display: grid;
+  grid-template-columns: 92px 1fr auto;
+  gap: 10px;
+  align-items: baseline;
+  color: inherit;
+  text-decoration: none;
+}
+
+.ev-body:hover .ev-title {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.ev-time {
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.ev-title {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.ev-cal {
+  font-size: 0.78rem;
+  color: var(--ink-2);
+  text-align: right;
+  max-width: 180px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ev-tags {
+  margin: 3px 0 0 102px;
+}
+
+.foot {
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Nastavení kalendáře */
+.sheet-h {
+  margin: 0;
+  font-family: var(--display);
+  font-size: 1.35rem;
+}
+
+.sheet-text {
+  margin: 0;
+  line-height: 1.5;
+}
+
+.sheet-text.warn {
+  color: var(--late);
+  font-weight: 700;
+}
+
+.sheet-inner > a.btn {
+  align-self: flex-start;
+  text-decoration: none;
+}
+
+.cal-list {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 12px 10px;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cal-list legend {
+  font-size: 0.85rem;
+  color: var(--ink-2);
+  padding: 0 4px;
+}
+
+.cal-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 6px 0;
+  cursor: pointer;
+}
+
+.cal-item input {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0;
+  accent-color: var(--ink);
+  flex: none;
+}
+
+.cal-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  margin-top: 4px;
+  flex: none;
+}
+
+.cal-write small {
+  display: block;
+  color: var(--ink-2);
+  font-size: 0.82rem;
+  margin-top: 2px;
+}
+
+@media (max-width: 640px) {
+  .ev-body {
+    grid-template-columns: 1fr auto;
+  }
+
+  .ev-time {
+    grid-column: 1;
+  }
+
+  .ev-cal {
+    grid-column: 2;
+    grid-row: 1;
+  }
+
+  .ev-title {
+    grid-column: 1 / 3;
+  }
+
+  .ev-tags {
+    margin-left: 0;
+  }
+}
+
 /* Ve tmavém režimu zvýrazňovač jako podtržení – světlý text na žluté by nebyl čitelný */
 @media (prefers-color-scheme: dark) {
   .head-num,

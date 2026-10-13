@@ -16,6 +16,7 @@ import { TaskRow } from "./TaskRow";
 import { TimeSheet } from "./TimeSheet";
 import { TimeView } from "./TimeView";
 import { DayWeather, useWeather, WeatherCard } from "./Weather";
+import { CalendarSheet, EventList, filterEvents, useCalendar } from "./Calendar";
 
 type View = "today" | "plan" | "done" | "time";
 // měření času: načítáme 45 dní zpět (pokryje měsíc i týden přes přelom měsíce)
@@ -40,6 +41,7 @@ export function App() {
   const [times, setTimes] = useState<TimeEntry[]>([]);
   const [timeError, setTimeError] = useState(false);
   const [editingTime, setEditingTime] = useState<TimeEntry | "new" | null>(null);
+  const [calOpen, setCalOpen] = useState(false);
   // datum až v prohlížeči – stránka se předgeneruje při buildu
   const [today, setToday] = useState<string | null>(null);
   const quick = useRef<QuickAddHandle>(null);
@@ -69,6 +71,23 @@ export function App() {
       setToday(todayISO());
     }
   }, [store]);
+
+  const cal = useCalendar(!store.demo, load);
+
+  useEffect(() => {
+    // návrat z připojení kalendáře
+    const p = new URLSearchParams(window.location.search).get("calendar");
+    if (!p) return;
+    const msg: Record<string, string> = {
+      connected: "Kalendář připojen. Úkoly s datem se zapisují do kalendáře „Úkoly“.",
+      denied: "Připojení kalendáře bylo zrušeno.",
+      "no-refresh": "Google nevrátil trvalý přístup. Odeber aplikaci v účtu Google (Zabezpečení → Aplikace třetích stran) a připoj znovu.",
+      "not-configured": "Napojení kalendáře ještě není nastavené na serveru.",
+      error: "Připojení kalendáře se nepovedlo. Zkus to znovu.",
+    };
+    showToast({ text: msg[p] ?? msg.error });
+    window.history.replaceState(null, "", window.location.pathname);
+  }, []);
 
   useEffect(() => {
     load();
@@ -115,6 +134,7 @@ export function App() {
     replace({ ...task, ...p, done_at: p.done === true ? new Date().toISOString() : p.done === false ? null : task.done_at });
     try {
       replace(await store.update(task.id, p));
+      cal.requestSync();
       if (msg) {
         showToast({
           text: msg,
@@ -142,6 +162,7 @@ export function App() {
         important: p.important,
       });
       setTasks((list) => [...list, t]);
+      cal.requestSync();
       // když úkol nebude v aktuálním pohledu vidět, dát vědět, kam spadl
       const day = t.due_date ?? t.deadline;
       if (view === "today" && day !== today) {
@@ -167,6 +188,7 @@ export function App() {
     setTasks((all) => all.map((t) => (ids.includes(t.id) ? { ...t, due_date: day } : t)));
     try {
       await store.updateMany(ids, { due_date: day });
+      cal.requestSync();
       showToast({ text: `Přesunuto na dnes: ${ids.length}.` });
     } catch (e) {
       fail(e);
@@ -216,6 +238,8 @@ export function App() {
   const todays = dueOn(visible, today);
   const tomorrowCount = dueOn(visible, addDays(today, 1)).length;
   const soon = deadlinesSoon(visible, today);
+  const todayEvents = filterEvents(cal.byDay.get(today), filter);
+  const busyDates = new Set([...cal.byDay.keys()].filter((d) => filterEvents(cal.byDay.get(d), filter).length));
 
   const rowProps = {
     today,
@@ -300,6 +324,14 @@ export function App() {
       <main className="lists">
         {view === "today" && loaded && (
           <>
+            {todayEvents.length > 0 && (
+              <section className="group">
+                <div className="group-head">
+                  <h2>V kalendáři</h2>
+                </div>
+                <EventList events={todayEvents} day={today} onTag={rowProps.onTag} />
+              </section>
+            )}
             {late.length > 0 && (
               <section className="group tone-overdue">
                 <div className="group-head">
@@ -355,7 +387,8 @@ export function App() {
 
         {view === "plan" &&
           loaded &&
-          planGroups(visible, today).map((g) => {
+          planGroups(visible, today, 14, busyDates).map((g) => {
+            const dayEvents = g.date ? filterEvents(cal.byDay.get(g.date), filter) : [];
             const target = g.key === "none" ? null : g.date;
             const droppable = g.key === "none" || !!g.date;
             return (
@@ -391,6 +424,7 @@ export function App() {
                     </button>
                   )}
                 </div>
+                <EventList events={dayEvents} day={g.date ?? today} onTag={rowProps.onTag} />
                 {g.tasks.length ? (
                   <ul>
                     {g.tasks.map((t) => (
@@ -398,7 +432,7 @@ export function App() {
                     ))}
                   </ul>
                 ) : (
-                  <p className="empty small">Volno.</p>
+                  !dayEvents.length && <p className="empty small">Volno.</p>
                 )}
               </section>
             );
@@ -491,6 +525,7 @@ export function App() {
             setTasks((list) => list.filter((x) => x.id !== t.id));
             try {
               await store.remove(t.id);
+              cal.requestSync();
               showToast({ text: "Úkol smazán." });
             } catch (e) {
               fail(e);
@@ -501,11 +536,16 @@ export function App() {
 
       {!store.demo && (
         <footer className="foot">
+          <button type="button" className="btn-ghost small" onClick={() => setCalOpen(true)}>
+            {cal.status?.reconnect ? "⚠ Kalendář – připojit znovu" : cal.connected ? (cal.syncing ? "Kalendář · synchronizuji…" : "Kalendář") : "Připojit kalendář"}
+          </button>
           <button type="button" className="btn-ghost small" onClick={() => store.signOut()}>
             Odhlásit
           </button>
         </footer>
       )}
+
+      {calOpen && <CalendarSheet cal={cal} onClose={() => setCalOpen(false)} />}
 
       <div className="toast-wrap" aria-live="polite">
         {toast && (
