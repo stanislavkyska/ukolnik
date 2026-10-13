@@ -19,7 +19,8 @@ test("dny v týdnu včetně skloňování a předložek", () => {
   const r = p("faktura Novák v pátek");
   assert.equal(r.dueDate, "2026-10-16");
   assert.equal(r.title, "faktura Novák");
-  assert.equal(p("odevzdat výkresy do pátku").dueDate, "2026-10-16");
+  assert.equal(p("odevzdat výkresy do pátku").deadline, "2026-10-16");
+  assert.equal(p("odevzdat výkresy do pátku").dueDate, null);
   assert.equal(p("odevzdat výkresy do pátku").title, "odevzdat výkresy");
   assert.equal(p("ve středu focení").dueDate, "2026-10-14");
   assert.equal(p("pondělí porada").dueDate, "2026-10-19", "dnes je pondělí → příští");
@@ -47,7 +48,7 @@ test("absolutní data", () => {
   assert.equal(p("daně 15.10.").dueDate, "2026-10-15");
   assert.equal(p("daně 15. 10.").dueDate, "2026-10-15");
   assert.equal(p("daně 15. 10. 2027").dueDate, "2027-10-15");
-  assert.equal(p("daně do 1.3.").dueDate, "2027-03-01", "bez roku a v minulosti → příští rok");
+  assert.equal(p("daně do 1.3.").deadline, "2027-03-01", "bez roku a v minulosti → příští rok");
   assert.equal(p("daně do 1.3.").title, "daně");
   assert.equal(p("nesmysl 31.2.").dueDate, null);
 });
@@ -104,4 +105,16 @@ test("počítání štítků sloučí varianty bez diakritiky", () => {
   const c = countTags([["kancelář"], ["kancelar", "really"], ["really"]]);
   assert.equal(c.length, 2);
   assert.equal(c.find((t) => t.name === "kancelář")?.count, 2);
+});
+
+test("deadline vs. kdy na tom dělat", () => {
+  const r = p("faktura Novák ve středu do pátku #really");
+  assert.equal(r.dueDate, "2026-10-14");
+  assert.equal(r.deadline, "2026-10-16");
+  assert.equal(r.title, "faktura Novák");
+  assert.equal(p("stavební povolení deadline 30.10.").deadline, "2026-10-30");
+  assert.equal(p("stavební povolení deadline 30.10.").title, "stavební povolení");
+  assert.equal(p("přiznání nejpozději 15. 10.").deadline, "2026-10-15");
+  assert.equal(p("výkresy do ne").deadline, "2026-10-18");
+  assert.equal(p("zavolat zítra").deadline, null);
 });

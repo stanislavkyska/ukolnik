@@ -1,5 +1,6 @@
-// Rychlé zadání: z věty typu „faktura Novák v pátek 14:00 #really !“
-// vytáhne termín, čas, štítky a důležitost. Zbytek je název úkolu.
+// Rychlé zadání: z věty typu „faktura Novák v pátek 14:00 do 20. 10. #really !“
+// vytáhne kdy na úkolu dělat, deadline („do …“), čas, štítky a důležitost.
+// Zbytek je název úkolu.
 
 import { addDays, addMonths, isValidDate, makeISO, startOfWeek, todayISO, weekday } from "./dates.ts";
 import { normalize } from "./text.ts";
@@ -8,6 +9,8 @@ export interface ParsedTask {
   title: string;
   dueDate: string | null;
   dueTime: string | null;
+  /** do kdy musí být hotovo („do pátku“, „deadline 15. 10.“) */
+  deadline: string | null;
   tags: string[];
   important: boolean;
 }
@@ -25,7 +28,9 @@ const WEEKDAYS: Record<string, number> = {
 // Zkratky, které jsou zároveň běžná slova – berou se jen s předložkou („v po“, „do ne“)
 const WEEKDAYS_WITH_PREFIX_ONLY: Record<string, number> = { po: 1, st: 3, ne: 7 };
 
-const DATE_PREFIXES = new Set(["v", "ve", "do", "na", "nejpozdeji", "od"]);
+// předložky před deadlinem
+const DEADLINE_PREFIXES = new Set(["do", "nejpozdeji", "deadline", "dl"]);
+const DATE_PREFIXES = new Set(["v", "ve", "na", "od", ...DEADLINE_PREFIXES]);
 const TIME_PREFIXES = new Set(["v", "ve", "od", "kolem", "na"]);
 
 const TAG_RE = /^#([\p{L}\p{N}_\-/]+)$/u;
@@ -48,6 +53,7 @@ export function parseQuickAdd(
 
   let dueDate: string | null = null;
   let dueTime: string | null = null;
+  let deadline: string | null = null;
   const tags: string[] = [];
   let important = false;
 
@@ -93,14 +99,18 @@ export function parseQuickAdd(
       }
     }
 
-    // datum
-    if (!dueDate) {
+    // datum – „do …“ je deadline, jinak kdy na tom dělat
+    if (!dueDate || !deadline) {
       const dm = matchDate(norm, i, today);
       if (dm) {
-        dueDate = dm.date!;
-        consume(dm);
-        i = dm.end - 1;
-        continue;
+        const isDeadline = dm.start > 0 && !used[dm.start - 1] && DEADLINE_PREFIXES.has(norm[dm.start - 1]);
+        if (isDeadline ? !deadline : !dueDate) {
+          if (isDeadline) deadline = dm.date!;
+          else dueDate = dm.date!;
+          consume(dm);
+          i = dm.end - 1;
+          continue;
+        }
       }
     }
   }
@@ -109,7 +119,7 @@ export function parseQuickAdd(
   title = title.replace(/[\s,;:-]+$/, "").trim();
   if (!title) title = input.trim();
 
-  return { title, dueDate, dueTime, tags, important };
+  return { title, dueDate, dueTime, deadline, tags, important };
 }
 
 function matchTime(norm: string[], i: number): Match | null {

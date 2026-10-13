@@ -7,6 +7,7 @@ create table if not exists public.tasks (
   notes        text not null default '',
   due_date     date,
   due_time     time,
+  deadline     date,
   tags         text[] not null default '{}',
   important    boolean not null default false,
   done         boolean not null default false,
@@ -21,6 +22,7 @@ create table if not exists public.tasks (
 
 create index if not exists tasks_user_open_idx on public.tasks (user_id, done, due_date);
 create index if not exists tasks_tags_idx on public.tasks using gin (tags);
+create index if not exists tasks_deadline_idx on public.tasks (user_id, deadline) where done = false;
 
 -- updated_at se nastavuje samo
 create or replace function public.touch_updated_at() returns trigger

@@ -5,14 +5,20 @@
 import { NextResponse } from "next/server";
 import { agentDb, checkAgent } from "@/lib/agent";
 import { addDays, dateLabel, dayName, todayISO } from "@/lib/dates";
-import { compareTasks, overdue, dueOn, timeLabel } from "@/lib/plan";
+import { compareTasks, deadlineInfo, overdue, dueOn, timeLabel, when } from "@/lib/plan";
 import { TASK_COLUMNS, type Task } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
 
 function line(t: Task, today: string, withDate = false): string {
-  const parts = [t.important ? "❗" : "", timeLabel(t.due_time) ?? "", t.title, t.tags.map((g) => `#${g}`).join(" ")];
-  if (withDate && t.due_date) parts.unshift(`[${dateLabel(t.due_date, today)}]`);
+  const parts = [
+    t.important ? "❗" : "",
+    timeLabel(t.due_time) ?? "",
+    t.title,
+    t.deadline ? `(${deadlineInfo(t.deadline, today).label})` : "",
+    t.tags.map((g) => `#${g}`).join(" "),
+  ];
+  if (withDate && when(t)) parts.unshift(`[${dateLabel(when(t)!, today)}]`);
   return "- " + parts.filter(Boolean).join(" ");
 }
 
@@ -28,13 +34,13 @@ export async function GET(req: Request) {
     .select(TASK_COLUMNS)
     .eq("user_id", owner)
     .eq("done", false)
-    .lte("due_date", until);
+    .or(`due_date.lte.${until},deadline.lte.${until}`);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const tasks = (data as Task[]).sort(compareTasks);
   const late = overdue(tasks, today);
   const now = dueOn(tasks, today);
-  const upcoming = tasks.filter((t) => t.due_date! > today);
+  const upcoming = tasks.filter((t) => when(t)! > today);
 
   const text = [
     `Dnes je ${dayName(today)} ${today}.`,

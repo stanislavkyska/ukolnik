@@ -12,6 +12,7 @@ export interface NewTask {
   notes?: string;
   due_date: string | null;
   due_time: string | null;
+  deadline: string | null;
   tags: string[];
   important: boolean;
 }

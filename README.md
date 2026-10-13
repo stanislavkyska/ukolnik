@@ -12,7 +12,11 @@ Napiš úkol jednou větou, aplikace si z ní vytáhne termín, čas a štítky:
 | `výkresy RD do 15. 10. #kancelář !` | termín 15. 10., důležité |
 | `focení Poruba zítra ve 14:30` | zítra 14:30 |
 | `objednat dřevo příští týden` | pondělí příštího týdne |
+| `faktura Dvořák do pátku` | **deadline** pátek (bez naplánovaného dne) |
+| `řezy RD ve středu do 20. 10. #projekce/rd-senov` | dělat ve středu, deadline 20. 10. |
 | `STK za měsíc` / `kontrola za 3 dny` | relativně od dneška |
+
+**Kdy vs. deadline:** datum s předložkou `do`, `nejpozději` nebo `deadline` je deadline (do kdy musí být hotovo). Ostatní datum je den, kdy na tom chceš dělat. Úkol bez naplánovaného dne se zobrazuje v den deadlinu. Deadliny v příštích 3 dnech hlídá sekce **Blíží se deadline** v pohledu Dnes.
 
 Poznává: dnes, zítra, pozítří, dny v týdnu (i skloňované: do pátku, ve středu), zkratky út/čt/pá/so, příští týden / příští pátek, za N dní/týdnů/měsíců, 15.10., 15. 10. 2027, čas 14:30, 9h, v 9.30. `!` = důležité.
 
@@ -38,7 +42,7 @@ Zkratka na počítači: `N` nebo `/` skočí do zadávání.
 
 ### 1. Supabase (databáze a přihlášení) – zdarma
 1. Založ projekt na [supabase.com](https://supabase.com).
-2. SQL Editor → vlož obsah `supabase/schema.sql` → Run. (Při aktualizaci starší instalace stačí `supabase/002_time.sql`.)
+2. SQL Editor → vlož obsah `supabase/schema.sql` → Run. (Při aktualizaci starší instalace stačí spustit nové soubory `supabase/00X_*.sql`.)
 3. Authentication → Providers → Google: zapni. Client ID a Secret vytvoříš v [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (OAuth client, typ Web application, redirect URI zkopíruj ze Supabase).
 4. Authentication → URL Configuration: Site URL = adresa aplikace (např. `https://ukolnik.vercel.app`), a do Redirect URLs přidej `https://ukolnik.vercel.app/auth/callback` (a `http://localhost:3000/auth/callback` pro vývoj).
 

@@ -1206,10 +1206,60 @@ button.tag:hover {
   }
 }
 
+/* Deadline */
+.pill-dl {
+  border-color: var(--late);
+  color: var(--late);
+  font-weight: 700;
+}
+
+.row-dl {
+  font-weight: 700;
+}
+
+.row-dl::before {
+  content: "⚑ ";
+  font-weight: 400;
+}
+
+.row-dl.tone-late {
+  color: var(--late);
+}
+
+.row-dl.tone-soon {
+  color: var(--ink);
+  background: linear-gradient(transparent 55%, color-mix(in srgb, var(--marker) 70%, transparent) 55%);
+}
+
+.row-dl.tone-ok {
+  font-weight: 400;
+}
+
+.tone-deadline h2::before {
+  content: "⚑ ";
+  color: var(--late);
+}
+
+.sheet input.has-dl {
+  border-color: var(--late);
+}
+
+.sheet-dl-actions {
+  display: flex;
+  align-items: flex-end;
+  padding-bottom: 4px;
+}
+
+.sheet-hint.warn {
+  color: var(--late);
+  margin-top: -8px;
+}
+
 /* Ve tmavém režimu zvýrazňovač jako podtržení – světlý text na žluté by nebyl čitelný */
 @media (prefers-color-scheme: dark) {
   .head-num,
-  .tone-today h2 {
+  .tone-today h2,
+  .row-dl.tone-soon {
     background: linear-gradient(transparent 86%, var(--marker) 86%);
   }
 }

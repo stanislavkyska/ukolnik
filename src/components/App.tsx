@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, dayName, cap, todayISO } from "@/lib/dates";
 import type { ParsedTask } from "@/lib/parse";
-import { doneGroups, dueOn, overdue, planGroups } from "@/lib/plan";
+import { deadlinesSoon, doneGroups, dueOn, overdue, planGroups } from "@/lib/plan";
 import { getStore } from "@/lib/store";
 import { countTags } from "@/lib/tags";
 import type { TimeEntry } from "@/lib/time";
@@ -120,6 +120,7 @@ export function App() {
             done: before.done,
             due_date: before.due_date,
             due_time: before.due_time,
+            deadline: before.deadline,
           }),
         });
       }
@@ -130,11 +131,19 @@ export function App() {
 
   const add = async (p: ParsedTask) => {
     try {
-      const t = await store.create({ title: p.title, due_date: p.dueDate, due_time: p.dueTime, tags: p.tags, important: p.important });
+      const t = await store.create({
+        title: p.title,
+        due_date: p.dueDate,
+        due_time: p.dueTime,
+        deadline: p.deadline,
+        tags: p.tags,
+        important: p.important,
+      });
       setTasks((list) => [...list, t]);
       // když úkol nebude v aktuálním pohledu vidět, dát vědět, kam spadl
-      if (view === "today" && t.due_date !== today) {
-        showToast({ text: t.due_date ? "Přidáno do plánu." : "Přidáno do plánu bez termínu." });
+      const day = t.due_date ?? t.deadline;
+      if (view === "today" && day !== today) {
+        showToast({ text: day ? "Přidáno do plánu." : "Přidáno do plánu bez termínu." });
       }
     } catch (e) {
       fail(e);
@@ -204,6 +213,7 @@ export function App() {
   const late = overdue(visible, today);
   const todays = dueOn(visible, today);
   const tomorrowCount = dueOn(visible, addDays(today, 1)).length;
+  const soon = deadlinesSoon(visible, today);
 
   const rowProps = {
     today,
@@ -325,6 +335,18 @@ export function App() {
                 </p>
               )}
             </section>
+            {soon.length > 0 && (
+              <section className="group tone-deadline">
+                <div className="group-head">
+                  <h2>Blíží se deadline</h2>
+                </div>
+                <ul>
+                  {soon.map((t) => (
+                    <TaskRow key={t.id} task={t} showDate timing={timingId === t.id} {...rowProps} />
+                  ))}
+                </ul>
+              </section>
+            )}
             {tomorrowCount > 0 && (
               <button type="button" className="peek" onClick={() => setView("plan")}>
                 Zítra {tomorrowCount === 1 ? "čeká 1 úkol" : tomorrowCount < 5 ? `čekají ${tomorrowCount} úkoly` : `čeká ${tomorrowCount} úkolů`}

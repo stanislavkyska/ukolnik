@@ -1,7 +1,7 @@
 // API pro agenty: výpis a zakládání úkolů.
 //   GET  /api/agent/tasks?view=today|overdue|week|open|done|all&tag=really
 //   POST /api/agent/tasks  { "text": "faktura Novák v pátek #really" }
-//                     nebo { "title": "...", "due_date": "2026-10-16", "tags": ["really"] }
+//                     nebo { "title": "...", "due_date": "2026-10-16", "deadline": "2026-10-20", "tags": ["really"] }
 
 import { NextResponse } from "next/server";
 import { agentDb, checkAgent, cleanPatch } from "@/lib/agent";
@@ -24,13 +24,13 @@ export async function GET(req: Request) {
   let q = db.from("tasks").select(TASK_COLUMNS).eq("user_id", owner);
   switch (view) {
     case "today":
-      q = q.eq("done", false).lte("due_date", today);
+      q = q.eq("done", false).or(`due_date.lte.${today},deadline.lte.${today}`);
       break;
     case "overdue":
-      q = q.eq("done", false).lt("due_date", today);
+      q = q.eq("done", false).or(`due_date.lt.${today},deadline.lt.${today}`);
       break;
     case "week":
-      q = q.eq("done", false).lte("due_date", addDays(today, 7));
+      q = q.eq("done", false).or(`due_date.lte.${addDays(today, 7)},deadline.lte.${addDays(today, 7)}`);
       break;
     case "open":
       q = q.eq("done", false);
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     // stejné rychlé zadání jako v aplikaci, včetně sloučení s existujícími štítky
     const { data: tags } = await db.from("tag_usage").select("name").eq("user_id", owner);
     const p = parseQuickAdd(body.text, { knownTags: (tags ?? []).map((t: { name: string }) => t.name) });
-    row = { title: p.title, due_date: p.dueDate, due_time: p.dueTime, tags: p.tags, important: p.important };
+    row = { title: p.title, due_date: p.dueDate, due_time: p.dueTime, deadline: p.deadline, tags: p.tags, important: p.important };
   } else {
     const r = cleanPatch(body);
     if ("error" in r) return NextResponse.json({ error: r.error }, { status: 400 });

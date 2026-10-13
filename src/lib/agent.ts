@@ -43,6 +43,11 @@ export function cleanPatch(body: Record<string, unknown>): { patch: TaskPatch } 
     patch.due_date = body.due_date as string | null;
     if (body.due_date === null) patch.due_time = null;
   }
+  if ("deadline" in body) {
+    if (body.deadline !== null && !(typeof body.deadline === "string" && DATE_RE.test(body.deadline)))
+      return { error: "deadline musí být YYYY-MM-DD nebo null" };
+    patch.deadline = body.deadline as string | null;
+  }
   if ("due_time" in body) {
     if (body.due_time !== null && !(typeof body.due_time === "string" && TIME_RE.test(body.due_time)))
       return { error: "due_time musí být HH:MM nebo null" };

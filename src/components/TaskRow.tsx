@@ -1,7 +1,7 @@
 "use client";
 
 import { dateLabel } from "@/lib/dates";
-import { timeLabel } from "@/lib/plan";
+import { deadlineInfo, timeLabel } from "@/lib/plan";
 import type { Task } from "@/lib/types";
 import { Tag } from "./TagSuggest";
 
@@ -26,7 +26,9 @@ export function TaskRow({
   /** na tomto úkolu právě běží stopky */
   timing?: boolean;
 }) {
-  const overdue = !task.done && task.due_date && task.due_date < today;
+  const day = task.due_date ?? task.deadline;
+  const overdue = !task.done && day && day < today;
+  const dl = task.deadline ? deadlineInfo(task.deadline, today) : null;
   return (
     <li
       className={`row${task.done ? " is-done" : ""}${task.important ? " is-imp" : ""}${onTimer && !task.done ? " has-timer" : ""}`}
@@ -53,6 +55,11 @@ export function TaskRow({
           {task.due_time && <span className="row-time">{timeLabel(task.due_time)}</span>}
           {showDate && task.due_date && (
             <span className={overdue ? "row-date is-late" : "row-date"}>{dateLabel(task.due_date, today)}</span>
+          )}
+          {dl && (
+            <span className={`row-dl tone-${task.done ? "ok" : dl.tone}`}>
+              {task.done ? `deadline ${dateLabel(task.deadline!, today)}` : dl.label}
+            </span>
           )}
           {task.notes && <span className="row-note">poznámka</span>}
         </span>

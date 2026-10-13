@@ -85,6 +85,7 @@ export function EditSheet({
   const [notes, setNotes] = useState(task.notes);
   const [date, setDate] = useState(task.due_date ?? "");
   const [time, setTime] = useState(task.due_time?.slice(0, 5) ?? "");
+  const [deadline, setDeadline] = useState(task.deadline ?? "");
   const [tags, setTags] = useState(task.tags);
   const [important, setImportant] = useState(task.important);
   const dialog = useRef<HTMLDialogElement>(null);
@@ -103,6 +104,7 @@ export function EditSheet({
       notes,
       due_date: date || null,
       due_time: date && time ? time : null,
+      deadline: deadline || null,
       tags,
       important,
     });
@@ -112,7 +114,7 @@ export function EditSheet({
     ["Dnes", today],
     ["Zítra", addDays(today, 1)],
     ["Příští týden", addDays(startOfWeek(today), 7)],
-    ["Bez termínu", null],
+    ["Bez data", null],
   ];
 
   return (
@@ -147,7 +149,7 @@ export function EditSheet({
           aria-label="Název úkolu"
         />
 
-        <div className="sheet-moves" role="group" aria-label="Přesunout">
+        <div className="sheet-moves" role="group" aria-label="Kdy na tom dělat">
           {moves.map(([label, d]) => (
             <button
               key={label}
@@ -165,7 +167,7 @@ export function EditSheet({
 
         <div className="sheet-row">
           <label>
-            Termín
+            Kdy na tom dělat
             <input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </label>
           <label>
@@ -173,6 +175,27 @@ export function EditSheet({
             <input type="time" value={time} onChange={(e) => setTime(e.target.value)} disabled={!date} />
           </label>
         </div>
+
+        <div className="sheet-row">
+          <label>
+            Deadline
+            <input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} className={deadline ? "has-dl" : undefined} />
+          </label>
+          <div className="sheet-dl-actions">
+            {deadline ? (
+              <button type="button" className="btn-ghost small" onClick={() => setDeadline("")}>
+                Zrušit deadline
+              </button>
+            ) : (
+              date && (
+                <button type="button" className="btn-ghost small" onClick={() => setDeadline(date)}>
+                  Stejný den
+                </button>
+              )
+            )}
+          </div>
+        </div>
+        {deadline && date && date > deadline && <p className="sheet-hint warn">Naplánováno až po deadlinu.</p>}
 
         <div className="sheet-label">
           <span>Štítky</span>

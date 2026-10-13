@@ -36,7 +36,7 @@ export const QuickAdd = forwardRef<QuickAddHandle, Props>(
       if (!timer) return p;
       // u stopek se termín nehledá – „pátek“ v názvu zůstane
       const title = text.split(/\s+/).filter((w) => !w.startsWith("#")).join(" ").trim();
-      return { ...p, title, dueDate: null, dueTime: null, important: false };
+      return { ...p, title, dueDate: null, dueTime: null, deadline: null, important: false };
     }, [text, known, timer]);
     const items = useMemo(() => {
       if (!token) return [];
@@ -63,7 +63,7 @@ export const QuickAdd = forwardRef<QuickAddHandle, Props>(
       if (busy || (!parsed && !timer)) return;
       setBusy(true);
       try {
-        await onAdd(parsed ?? { title: "", dueDate: null, dueTime: null, tags: [], important: false });
+        await onAdd(parsed ?? { title: "", dueDate: null, dueTime: null, deadline: null, tags: [], important: false });
         setText("");
         setCaret(0);
       } finally {
@@ -147,10 +147,11 @@ export const QuickAdd = forwardRef<QuickAddHandle, Props>(
           </button>
         </div>
         {open && <TagSuggest id="quick-suggest" items={items} index={index} query={token!.query} onPick={pick} />}
-        {parsed && (parsed.dueDate || parsed.dueTime || parsed.tags.length > 0 || parsed.important) && (
+        {parsed && (parsed.dueDate || parsed.dueTime || parsed.deadline || parsed.tags.length > 0 || parsed.important) && (
           <div className="quick-preview" aria-live="polite">
             {parsed.dueDate && <span className="pill pill-date">{dateLabel(parsed.dueDate, today, { long: true })}</span>}
             {parsed.dueTime && <span className="pill">{parsed.dueTime}</span>}
+            {parsed.deadline && <span className="pill pill-dl">Deadline {dateLabel(parsed.deadline, today, { long: true }).toLowerCase()}</span>}
             {parsed.important && <span className="pill pill-imp">Důležité</span>}
             {parsed.tags.map((t) => (
               <Tag key={t} name={t} />
