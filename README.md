@@ -38,6 +38,10 @@ Zkratka na počítači: `N` nebo `/` skočí do zadávání.
 
 Štítky jsou společné pro úkoly i čas (a později kalendář) – našeptávač nabízí všechny.
 
+## Počasí
+
+V hlavičce vpravo je aktuální počasí. Kliknutím rozbalíš předpověď na 12 hodin a 7 dní, kliknutím na název místa ho změníš (vyhledání obce, poslední místa, „Moje poloha“). Výchozí místo je Šenov u Ostravy, vybrané místo si pamatuje každé zařízení zvlášť. V pohledu Plán je u každého dne ikona počasí a teploty. Data: Open-Meteo (zdarma, bez klíče).
+
 ## Spuštění
 
 ### 1. Supabase (databáze a přihlášení) – zdarma

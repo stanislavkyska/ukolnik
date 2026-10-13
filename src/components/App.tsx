@@ -15,6 +15,7 @@ import { Tag } from "./TagSuggest";
 import { TaskRow } from "./TaskRow";
 import { TimeSheet } from "./TimeSheet";
 import { TimeView } from "./TimeView";
+import { DayWeather, useWeather, WeatherCard } from "./Weather";
 
 type View = "today" | "plan" | "done" | "time";
 // měření času: načítáme 45 dní zpět (pokryje měsíc i týden přes přelom měsíce)
@@ -42,6 +43,7 @@ export function App() {
   // datum až v prohlížeči – stránka se předgeneruje při buildu
   const [today, setToday] = useState<string | null>(null);
   const quick = useRef<QuickAddHandle>(null);
+  const weather = useWeather();
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const load = useCallback(async () => {
@@ -242,11 +244,7 @@ export function App() {
                 : `Na dnes ${todays.length}${late.length ? `, po termínu ${late.length}` : ""}.`}
           </p>
         </div>
-        {!store.demo && (
-          <button type="button" className="btn-ghost head-out" onClick={() => store.signOut()}>
-            Odhlásit
-          </button>
-        )}
+        <WeatherCard w={weather} today={today} />
       </header>
 
       {store.demo && (
@@ -386,6 +384,7 @@ export function App() {
               >
                 <div className="group-head">
                   <h2>{g.label}</h2>
+                  {g.date && <DayWeather day={weather.dayFor(g.date)} />}
                   {g.key === "overdue" && (
                     <button type="button" className="btn-ghost small" onClick={() => moveOverdueToToday(g.tasks)}>
                       Přesunout vše na dnes
@@ -498,6 +497,14 @@ export function App() {
             }
           }}
         />
+      )}
+
+      {!store.demo && (
+        <footer className="foot">
+          <button type="button" className="btn-ghost small" onClick={() => store.signOut()}>
+            Odhlásit
+          </button>
+        </footer>
       )}
 
       <div className="toast-wrap" aria-live="polite">
