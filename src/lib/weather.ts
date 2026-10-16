@@ -91,13 +91,15 @@ export async function fetchForecast(p: Place): Promise<Forecast> {
   };
 }
 
-export async function searchPlaces(q: string): Promise<Place[]> {
+const sameSpot = (a: Place, b: Place) => Math.abs(a.lat - b.lat) < 0.02 && Math.abs(a.lon - b.lon) < 0.02;
+
+async function searchOpenMeteo(q: string): Promise<Place[]> {
   const res = await fetch(
-    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=cs&format=json`,
+    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=10&language=cs&format=json`,
   );
-  if (!res.ok) return [];
+  if (!res.ok) throw new Error(`Open-Meteo ${res.status}`);
   const j = await res.json();
-  const list: Place[] = (j.results ?? []).map(
+  return (j.results ?? []).map(
     (x: { name: string; admin1?: string; admin2?: string; country_code?: string; country?: string; latitude: number; longitude: number }) => ({
       name: x.name,
       region: [x.admin2 ?? x.admin1, x.country_code !== "CZ" ? x.country : null].filter(Boolean).join(", "),
@@ -105,8 +107,57 @@ export async function searchPlaces(q: string): Promise<Place[]> {
       lon: x.longitude,
     }),
   );
+}
+
+interface NominatimItem {
+  lat: string;
+  lon: string;
+  name?: string;
+  display_name: string;
+  addresstype?: string;
+  address?: Record<string, string>;
+}
+
+/** Záloha: OpenStreetMap (Nominatim) – zná i malé obce a místní části */
+async function searchNominatim(q: string): Promise<Place[]> {
+  const res = await fetch(
+    `https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=8&accept-language=cs&countrycodes=cz,sk,pl,at,de&q=${encodeURIComponent(q)}`,
+  );
+  if (!res.ok) throw new Error(`OpenStreetMap ${res.status}`);
+  const list = (await res.json()) as NominatimItem[];
+  return list.map((x) => {
+    const a = x.address ?? {};
+    const name = x.name || x.display_name.split(",")[0];
+    const region = a.county ?? a.state ?? "";
+    const country = a.country_code && a.country_code !== "cz" ? a.country : null;
+    return { name, region: [region, country].filter(Boolean).join(", "), lat: Number(x.lat), lon: Number(x.lon) };
+  });
+}
+
+/**
+ * Hledání místa. Nejdřív Open-Meteo, když nic nenajde nebo selže, OpenStreetMap.
+ * Vyhodí chybu jen tehdy, když selžou obě služby.
+ */
+export async function searchPlaces(q: string): Promise<Place[]> {
+  const out: Place[] = [];
+  let failures = 0;
+  try {
+    out.push(...(await searchOpenMeteo(q)));
+  } catch (e) {
+    console.warn("Hledání míst (Open-Meteo):", e);
+    failures++;
+  }
+  if (out.length < 3) {
+    try {
+      for (const p of await searchNominatim(q)) if (!out.some((x) => sameSpot(x, p))) out.push(p);
+    } catch (e) {
+      console.warn("Hledání míst (OpenStreetMap):", e);
+      failures++;
+    }
+  }
+  if (!out.length && failures === 2) throw new Error("Vyhledávání míst je teď nedostupné.");
   // česká místa první
-  return list.sort((a, b) => Number(/,/.test(a.region)) - Number(/,/.test(b.region)));
+  return out.sort((a, b) => Number(/,/.test(a.region)) - Number(/,/.test(b.region))).slice(0, 8);
 }
 
 // Zapamatování místa v tomto zařízení

@@ -85,6 +85,7 @@ function PlacePicker({ w, onDone }: { w: WeatherState; onDone: () => void }) {
   const [q, setQ] = useState("");
   const [results, setResults] = useState<Place[]>([]);
   const [busy, setBusy] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
   const [geoError, setGeoError] = useState<string | null>(null);
   const input = useRef<HTMLInputElement>(null);
 
@@ -96,14 +97,24 @@ function PlacePicker({ w, onDone }: { w: WeatherState; onDone: () => void }) {
       return;
     }
     let live = true;
+    // pomalejší psaní = méně dotazů (OpenStreetMap povoluje 1 dotaz za sekundu)
     const t = setTimeout(async () => {
       setBusy(true);
-      const list = await searchPlaces(q.trim()).catch(() => []);
-      if (live) {
-        setResults(list);
-        setBusy(false);
+      try {
+        const list = await searchPlaces(q.trim());
+        if (live) {
+          setResults(list);
+          setSearchError(null);
+        }
+      } catch (e) {
+        if (live) {
+          setResults([]);
+          setSearchError(e instanceof Error ? e.message : "Vyhledávání selhalo.");
+        }
+      } finally {
+        if (live) setBusy(false);
       }
-    }, 250);
+    }, 600);
     return () => {
       live = false;
       clearTimeout(t);
@@ -156,7 +167,9 @@ function PlacePicker({ w, onDone }: { w: WeatherState; onDone: () => void }) {
               </li>
             ))
           ) : (
-            <li className="picker-empty">{busy ? "Hledám…" : "Nic nenalezeno."}</li>
+            <li className="picker-empty">
+              {busy ? "Hledám…" : searchError ? `${searchError} Zkus to za chvíli, nebo použij Moje poloha.` : "Nic nenalezeno. Zkus jiný tvar názvu nebo bližší větší obec."}
+            </li>
           )
         ) : (
           <>

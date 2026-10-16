@@ -1290,6 +1290,14 @@ button.tag:hover {
   justify-self: end;
 }
 
+/* barevné emoji i ve Windows (jinak je písmo vykreslí černobíle) */
+.wx-icon,
+.wx-hours li > span[aria-hidden],
+.wx-di,
+.dayw > span[aria-hidden] {
+  font-family: "Segoe UI Emoji", "Apple Color Emoji", "Noto Color Emoji", sans-serif;
+}
+
 .wx-icon {
   grid-row: 1;
   font-size: 1.9rem;
