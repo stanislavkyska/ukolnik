@@ -1706,3 +1706,36 @@ button.tag:hover {
     transition: none !important;
   }
 }
+
+/* Stránka ochrany soukromí */
+.legal {
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 40px 16px 80px;
+  line-height: 1.6;
+}
+
+.legal h1 {
+  font-family: var(--display);
+  font-size: 2rem;
+  margin: 0 0 16px;
+}
+
+.legal h2 {
+  font-family: var(--display);
+  font-size: 1.2rem;
+  margin: 28px 0 8px;
+}
+
+.legal a {
+  color: var(--ink);
+}
+
+.login-foot {
+  margin-top: 32px;
+  font-size: 0.85rem;
+}
+
+.login-foot a {
+  color: var(--ink-2);
+}

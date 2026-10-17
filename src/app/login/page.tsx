@@ -23,6 +23,9 @@ function Login() {
       <button type="button" className="btn" onClick={signIn}>
         Přihlásit přes Google
       </button>
+      <p className="login-foot">
+        <a href="/soukromi">Ochrana soukromí</a>
+      </p>
     </main>
   );
 }
