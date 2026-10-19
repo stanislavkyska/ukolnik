@@ -4,15 +4,26 @@ import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "reac
 import { dateLabel, todayISO } from "@/lib/dates";
 import { parseQuickAdd, type ParsedTask } from "@/lib/parse";
 import { suggestTags, tagTokenAt, type TagUsage } from "@/lib/tags";
-import { fmtDuration, parseDuration } from "@/lib/time";
+import { fmtDuration, parseDuration, parseTimes } from "@/lib/time";
 import { Tag, TagSuggest } from "./TagSuggest";
+
+function timerPreview(p: QuickEntry): string {
+  const day = p.yesterday ? " včera" : "";
+  const dur = p.durationMs ? fmtDuration(p.durationMs) : "";
+  if (p.fromTime && p.toTime) return `Zapsat ${p.fromTime}–${p.toTime}${day}`;
+  if (p.fromTime && dur) return `Zapsat od ${p.fromTime}, ${dur}${day}`;
+  if (p.toTime && dur) return `Zapsat ${dur} do ${p.toTime}${day}`;
+  if (dur) return `Zapsat ${dur}${day}`;
+  if (p.fromTime) return `Stopky od ${p.fromTime}${day}`;
+  return "Chybí začátek nebo délka";
+}
 
 export interface QuickAddHandle {
   focus(): void;
 }
 
 /** U stopek: délka v textu („2h“) = dopsat hotový záznam místo spuštění */
-export type QuickEntry = ParsedTask & { durationMs?: number; yesterday?: boolean };
+export type QuickEntry = ParsedTask & { durationMs?: number; yesterday?: boolean; fromTime?: string | null; toTime?: string | null };
 
 interface Props {
   tagUsage: TagUsage[];
@@ -40,8 +51,20 @@ export const QuickAdd = forwardRef<QuickAddHandle, Props>(
       if (!timer) return p;
       // u stopek se termín nehledá – „pátek“ v názvu zůstane
       const words = text.split(/\s+/).filter((w) => !w.startsWith("#")).join(" ").trim();
-      const d = parseDuration(words);
-      return { ...p, title: d.rest, dueDate: null, dueTime: null, deadline: null, important: false, durationMs: d.ms, yesterday: d.yesterday };
+      const t = parseTimes(words);
+      const d = parseDuration(t.rest);
+      return {
+        ...p,
+        title: d.rest,
+        dueDate: null,
+        dueTime: null,
+        deadline: null,
+        important: false,
+        durationMs: d.ms,
+        yesterday: d.yesterday,
+        fromTime: t.from,
+        toTime: t.to,
+      };
     }, [text, known, timer]);
     const items = useMemo(() => {
       if (!token) return [];
@@ -71,6 +94,8 @@ export const QuickAdd = forwardRef<QuickAddHandle, Props>(
         await onAdd(parsed ?? { title: "", dueDate: null, dueTime: null, deadline: null, tags: [], important: false });
         setText("");
         setCaret(0);
+      } catch {
+        // chybu už ukázal rodič – text zůstane k opravě
       } finally {
         setBusy(false);
         input.current?.focus();
@@ -148,17 +173,14 @@ export const QuickAdd = forwardRef<QuickAddHandle, Props>(
             aria-activedescendant={open && items.length ? `quick-suggest-${index}` : undefined}
           />
           <button type="submit" className="quick-add" disabled={timer ? busy : !parsed || busy}>
-            {timer ? (parsed?.durationMs ? "Zapsat" : "Spustit") : "Přidat"}
+            {timer ? (parsed?.durationMs || (parsed?.fromTime && parsed?.toTime) ? "Zapsat" : "Spustit") : "Přidat"}
           </button>
         </div>
         {open && <TagSuggest id="quick-suggest" items={items} index={index} query={token!.query} onPick={pick} />}
-        {parsed && (parsed.dueDate || parsed.dueTime || parsed.deadline || parsed.tags.length > 0 || parsed.important || parsed.durationMs) && (
+        {parsed && (parsed.dueDate || parsed.dueTime || parsed.deadline || parsed.tags.length > 0 || parsed.important || parsed.durationMs || parsed.fromTime || parsed.toTime) && (
           <div className="quick-preview" aria-live="polite">
-            {!!parsed.durationMs && (
-              <span className="pill pill-date">
-                Zapsat {fmtDuration(parsed.durationMs)}
-                {parsed.yesterday ? " včera" : ""}
-              </span>
+            {timer && (parsed.fromTime || parsed.toTime || !!parsed.durationMs) && (
+              <span className="pill pill-date">{timerPreview(parsed)}</span>
             )}
             {parsed.dueDate && <span className="pill pill-date">{dateLabel(parsed.dueDate, today, { long: true })}</span>}
             {parsed.dueTime && <span className="pill">{parsed.dueTime}</span>}

@@ -67,3 +67,15 @@ test("dopsání času z textu", () => {
   assert.equal(parseDuration("včera 3h statika").yesterday, true);
   assert.equal(parseDuration("statika").ms, 0);
 });
+
+import { parseTimes } from "../src/lib/time.ts";
+
+test("začátek a konec v poli stopek", () => {
+  assert.deepEqual(parseTimes("výkresy od 8,00 #mm"), { from: "08:00", to: null, rest: "výkresy #mm" });
+  assert.deepEqual(parseTimes("od 8 výkresy"), { from: "08:00", to: null, rest: "výkresy" });
+  assert.deepEqual(parseTimes("porada 8:00-9:30"), { from: "08:00", to: "09:30", rest: "porada" });
+  assert.deepEqual(parseTimes("porada 13–15"), { from: "13:00", to: "15:00", rest: "porada" });
+  assert.deepEqual(parseTimes("statika do 12:30"), { from: null, to: "12:30", rest: "statika" });
+  assert.equal(parseTimes("výkresy 2h").from, null, "délka není čas");
+  assert.equal(parseTimes("od 25:00").from, null);
+});

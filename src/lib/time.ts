@@ -204,3 +204,46 @@ export function parseDuration(text: string): ParsedDuration {
   }
   return { ms: Math.round(ms), rest: keep.join(" "), yesterday };
 }
+
+export interface ParsedTimes {
+  from: string | null; // HH:MM
+  to: string | null;
+  rest: string;
+}
+
+function clock(tok: string): string | null {
+  const m = tok.match(/^(\d{1,2})(?:[:.,](\d{2}))?h?$/);
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = m[2] ? Number(m[2]) : 0;
+  if (h > 23 || min > 59) return null;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
+/**
+ * Čas začátku/konce v poli stopek: „od 8:00“, „od 8,00“, „od 8“, „do 12:30“, „8:00-12:00“, „8–12“.
+ */
+export function parseTimes(text: string): ParsedTimes {
+  const toks = text.trim().split(/\s+/).filter(Boolean);
+  const keep: string[] = [];
+  let from: string | null = null;
+  let to: string | null = null;
+  for (let i = 0; i < toks.length; i++) {
+    const t = toks[i].toLowerCase();
+    const next = toks[i + 1];
+    if ((t === "od" || t === "do") && next && clock(next)) {
+      if (t === "od") from = clock(next);
+      else to = clock(next);
+      i++;
+      continue;
+    }
+    const range = t.match(/^([\d:.,]+)[-–]([\d:.,]+)$/);
+    if (range && clock(range[1]) && clock(range[2])) {
+      from = clock(range[1]);
+      to = clock(range[2]);
+      continue;
+    }
+    keep.push(toks[i]);
+  }
+  return { from, to, rest: keep.join(" ") };
+}

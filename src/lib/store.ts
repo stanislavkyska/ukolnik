@@ -49,6 +49,13 @@ export interface TaskStore {
 
 export const DEMO = !process.env.NEXT_PUBLIC_SUPABASE_URL;
 
+/** Konec běžících stopek při spuštění nových od `start` */
+function stopAt(running: TimeEntry, start: string): string {
+  const now = new Date().toISOString();
+  const end = start < now ? start : now;
+  return end > running.started_at ? end : running.started_at;
+}
+
 function supabaseStore(): TaskStore {
   const sb = supabaseBrowser();
   const recentDone = () => new Date(Date.now() - 30 * 86400000).toISOString();
@@ -96,20 +103,28 @@ function supabaseStore(): TaskStore {
       return data as TimeEntry[];
     },
     async startTimer(e) {
-      const now = new Date().toISOString();
-      const { data: stopped, error: e1 } = await sb
-        .from("time_entries")
-        .update({ ended_at: now })
-        .is("ended_at", null)
-        .select(TIME_COLUMNS);
-      if (e1) throw e1;
+      const start = e.started_at ?? new Date().toISOString();
+      // běžící stopky skončí tam, kde začínají nové (ale ne dřív, než samy začaly)
+      const { data: run, error: e0 } = await sb.from("time_entries").select(TIME_COLUMNS).is("ended_at", null);
+      if (e0) throw e0;
+      let stopped: TimeEntry | null = null;
+      for (const r of (run ?? []) as TimeEntry[]) {
+        const { data, error } = await sb
+          .from("time_entries")
+          .update({ ended_at: stopAt(r, start) })
+          .eq("id", r.id)
+          .select(TIME_COLUMNS)
+          .single();
+        if (error) throw error;
+        stopped = data as TimeEntry;
+      }
       const { data, error } = await sb
         .from("time_entries")
-        .insert({ title: e.title, tags: e.tags, task_id: e.task_id, started_at: now })
+        .insert({ title: e.title, tags: e.tags, task_id: e.task_id, started_at: start })
         .select(TIME_COLUMNS)
         .single();
       if (error) throw error;
-      return { started: data as TimeEntry, stopped: ((stopped as TimeEntry[]) ?? [])[0] ?? null };
+      return { started: data as TimeEntry, stopped };
     },
     async createTime(e) {
       const { data, error } = await sb.from("time_entries").insert(e).select(TIME_COLUMNS).single();
@@ -233,9 +248,10 @@ function demoStore(): TaskStore {
     },
     async startTimer(e) {
       const now = new Date().toISOString();
+      const start = e.started_at ?? now;
       let stopped: TimeEntry | null = null;
-      tmem = tall().map((x) => (x.ended_at ? x : (stopped = { ...x, ended_at: now })));
-      const started: TimeEntry = { id: crypto.randomUUID(), created_at: now, title: e.title, tags: e.tags, task_id: e.task_id, started_at: now, ended_at: null };
+      tmem = tall().map((x) => (x.ended_at ? x : (stopped = { ...x, ended_at: stopAt(x, start) })));
+      const started: TimeEntry = { id: crypto.randomUUID(), created_at: now, title: e.title, tags: e.tags, task_id: e.task_id, started_at: start, ended_at: null };
       tmem = [started, ...tmem];
       twrite();
       return { started, stopped };

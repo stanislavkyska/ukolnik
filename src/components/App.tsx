@@ -211,7 +211,7 @@ export function App() {
 
   const replaceTime = (e: TimeEntry) => setTimes((list) => list.map((x) => (x.id === e.id ? e : x)));
 
-  const startTimer = async (entry: { title: string; tags: string[]; task_id: string | null }) => {
+  const startTimer = async (entry: { title: string; tags: string[]; task_id: string | null; started_at?: string }) => {
     try {
       const { started, stopped } = await store.startTimer(entry);
       setTimes((list) => [started, ...list.map((x) => (stopped && x.id === stopped.id ? stopped : x))]);
@@ -294,18 +294,49 @@ export function App() {
           timer
           tagUsage={usage}
           onAdd={async (p) => {
-            if (!p.durationMs) {
+            const day = p.yesterday ? addDays(todayISO(), -1) : todayISO();
+            const at = (hhmm: string) => Date.parse(localToISO(day, hhmm));
+            const dur = p.durationMs ?? 0;
+            let start: number | null = null;
+            let end: number | null = null;
+            if (p.fromTime && p.toTime) {
+              start = at(p.fromTime);
+              end = at(p.toTime);
+              if (end <= start) end += 86400000; // přes půlnoc
+            } else if (p.fromTime && dur) {
+              start = at(p.fromTime);
+              end = start + dur;
+            } else if (p.toTime && dur) {
+              end = at(p.toTime);
+              start = end - dur;
+            } else if (dur) {
+              // jen délka: končí teď, u „včera“ včera v 17:00
+              end = p.yesterday ? at("17:00") : Date.now();
+              start = end - dur;
+            } else if (p.fromTime) {
+              // stopky běžící od zadaného času
+              const from = at(p.fromTime);
+              if (from > Date.now() + 60000) {
+                showToast({ text: `Začátek ${p.fromTime} je v budoucnu.` });
+                throw new Error("future");
+              }
+              await startTimer({ title: p.title, tags: p.tags, task_id: null, started_at: new Date(from).toISOString() });
+              return;
+            }
+            if (start === null || end === null) {
               await startTimer({ title: p.title, tags: p.tags, task_id: null });
               return;
             }
-            // dopsání hotového času: končí teď, u „včera“ včera v 17:00
-            const end = p.yesterday ? Date.parse(localToISO(addDays(todayISO(), -1), "17:00")) : Date.now();
+            if (end > Date.now() + 60000) {
+              showToast({ text: "Konec záznamu je v budoucnu. Pro běžící stopky napiš jen „od 8:00“." });
+              throw new Error("future");
+            }
             try {
               const created = await store.createTime({
                 title: p.title,
                 tags: p.tags,
                 task_id: null,
-                started_at: new Date(end - p.durationMs).toISOString(),
+                started_at: new Date(start).toISOString(),
                 ended_at: new Date(end).toISOString(),
               });
               setTimes((list) => [created, ...list]);
