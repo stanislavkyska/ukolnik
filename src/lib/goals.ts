@@ -5,7 +5,7 @@ import { addDays, daysBetween, weekday } from "./dates.ts";
 import { normalize } from "./text.ts";
 import { durationMs, inRange, localTime, rangeDates, type TimeEntry } from "./time.ts";
 
-export type GoalPeriod = "day" | "week" | "month";
+export type GoalPeriod = "day" | "week" | "month" | "project";
 
 export interface TimeGoal {
   id: string;
@@ -57,7 +57,30 @@ export interface GoalProgress {
   finishAt: string | null;
 }
 
-export function goalProgress(goal: TimeGoal, entries: TimeEntry[], today: string, now: number = Date.now()): GoalProgress {
+/**
+ * @param budgetDone u rozpočtu projektu: součet ukončených záznamů za celou dobu (ze serveru);
+ *                   běžící stopky se přičtou z `entries`
+ */
+export function goalProgress(goal: TimeGoal, entries: TimeEntry[], today: string, now: number = Date.now(), budgetDone = 0): GoalProgress {
+  if (goal.period === "project") {
+    const live = entries.filter((e) => !e.ended_at && entryMatches(e, goal.tag));
+    const done = budgetDone + live.reduce((s, e) => s + durationMs(e, now), 0);
+    const target = goal.hours * H;
+    return {
+      goal,
+      dayOff: false,
+      done,
+      target,
+      remaining: Math.max(0, target - done),
+      over: Math.max(0, done - target),
+      planToday: target,
+      balance: 0,
+      daysLeft: 0,
+      perDay: 0,
+      running: live.length > 0,
+      finishAt: null,
+    };
+  }
   const { from, to } = goal.period === "day" ? { from: today, to: today } : rangeDates(goal.period, today);
   const mine = entries.filter((e) => inRange(e, from, to) && entryMatches(e, goal.tag));
   const done = mine.reduce((s, e) => s + durationMs(e, now), 0);
@@ -115,7 +138,7 @@ export function hm(ms: number): string {
 
 export function goalLabel(g: Pick<TimeGoal, "tag" | "period">): string {
   const what = g.tag ? g.tag : "Celkem";
-  const when = g.period === "day" ? "dnes" : g.period === "week" ? "tento týden" : "tento měsíc";
+  const when = g.period === "day" ? "dnes" : g.period === "week" ? "tento týden" : g.period === "month" ? "tento měsíc" : "rozpočet projektu";
   return `${what} · ${when}`;
 }
 

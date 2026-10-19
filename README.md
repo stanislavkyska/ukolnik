@@ -42,6 +42,13 @@ Zkratka na počítači: `N` nebo `/` skočí do zadávání.
 - **Dopsání času:** v poli stopek napiš délku – `kontrola výkresů 1h30 #projekce/rd-senov`, `porada 45min`, `statika 2,5h včera` – a tlačítko se změní na **Zapsat** (záznam končí teď, u „včera“ včera v 17:00).
 - **Od kdy / od–do:** `výkresy od 8:00 #projekce` spustí stopky běžící od 8:00 (funguje i `od 8,00`, `od 8`). `porada 8:00-9:30` nebo `porada od 8 do 9:30` zapíše hotový záznam, stejně tak `statika od 13:00 2h` nebo `výkaz 1h do 12:00`. S „včera“ platí pro včerejšek.
 - Stopky běžící přes 10 h upozorní, že je asi zapomenuté zastavit.
+- **Rozpočet projektu:** Čas → Upravit cíle → období **Rozpočet**, např. `projekce/rd-senov` 60 h. Počítá všechen čas od začátku a ukazuje, kolik z odhadu zbývá (při 90 % zežloutne, při přetažení zčervená).
+
+### Jako v Togglu
+- **Rychlý start:** pod cíli jsou dlaždice s činnostmi, které děláš nejčastěji (posledních 30 dní). Jeden klik = stopky běží se stejným názvem a štítky.
+- **Týdenní výkaz:** Čas → **Týdenní výkaz** – tabulka projekt × den. Do buňky napiš hodiny (`1:30`, `1,5`, `90m`). Přidaný čas se zapíše jako záznam navazující na poslední práci dne (jinak od 8:00), ubraný se odečte od nejpozdějších záznamů dne, prázdná buňka den pro projekt vymaže. Šipkami se listuje po týdnech, dole jde přidat řádek pro nový projekt.
+- **Kalendář → čas:** u proběhlé události v Dnes / Plán je **⏱ Zapsat** – vytvoří záznam od začátku do konce události se štítky z názvu (`#projekce/rd-senov`). Bez štítku se otevře záznam k doplnění.
+- **Import z Togglu:** Čas → *Import z Togglu*. V Togglu Reports → Detailed → nastav období → Export → CSV. Projekty z Togglu se přiřadí ke štítkům (lze přepsat), duplicitní záznamy se přeskočí.
 
 Štítky jsou společné pro úkoly, čas i kalendář – našeptávač nabízí všechny.
 
@@ -69,7 +76,7 @@ V hlavičce vpravo je aktuální počasí. Kliknutím rozbalíš předpověď na
 
 ### 1. Supabase (databáze a přihlášení) – zdarma
 1. Založ projekt na [supabase.com](https://supabase.com).
-2. SQL Editor → vlož obsah `supabase/schema.sql` → Run. (Při aktualizaci starší instalace stačí spustit nové soubory `supabase/00X_*.sql`, naposledy `005_goals.sql`.)
+2. SQL Editor → vlož obsah `supabase/schema.sql` → Run. (Při aktualizaci starší instalace stačí spustit nové soubory `supabase/00X_*.sql`, naposledy `006_budget.sql`.)
 3. Authentication → Providers → Google: zapni. Client ID a Secret vytvoříš v [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (OAuth client, typ Web application, redirect URI zkopíruj ze Supabase).
 4. Authentication → URL Configuration: Site URL = adresa aplikace (např. `https://ukolnik.vercel.app`), a do Redirect URLs přidej `https://ukolnik.vercel.app/auth/callback` (a `http://localhost:3000/auth/callback` pro vývoj).
 

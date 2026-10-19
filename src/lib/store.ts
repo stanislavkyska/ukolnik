@@ -45,6 +45,10 @@ export interface TaskStore {
   listGoals(): Promise<TimeGoal[]>;
   createGoal(g: NewTimeGoal): Promise<TimeGoal>;
   removeGoal(id: string): Promise<void>;
+  /** součet ukončených záznamů se štítkem za celou dobu (ms) – pro rozpočet projektu */
+  tagTotal(tag: string): Promise<number>;
+  /** hromadné vložení (import) */
+  createTimes(list: NewTimeEntry[]): Promise<number>;
 }
 
 export const DEMO = !process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -153,6 +157,20 @@ function supabaseStore(): TaskStore {
     async removeGoal(id) {
       const { error } = await sb.from("time_goals").delete().eq("id", id);
       if (error) throw error;
+    },
+    async tagTotal(tag) {
+      const { data, error } = await sb.rpc("tag_time_total", { p_tag: tag });
+      if (error) throw error;
+      return Number(data ?? 0);
+    },
+    async createTimes(list) {
+      let n = 0;
+      for (let i = 0; i < list.length; i += 500) {
+        const { error } = await sb.from("time_entries").insert(list.slice(i, i + 500));
+        if (error) throw error;
+        n += Math.min(500, list.length - i);
+      }
+      return n;
     },
   };
 }
@@ -284,6 +302,18 @@ function demoStore(): TaskStore {
     },
     async removeGoal(id) {
       gwrite(gall().filter((g) => g.id !== id));
+    },
+    async tagTotal(tag) {
+      const t = tag.toLowerCase();
+      return tall()
+        .filter((e) => e.ended_at && e.tags.some((g) => g.toLowerCase() === t || g.toLowerCase().startsWith(t + "/")))
+        .reduce((s, e) => s + (Date.parse(e.ended_at!) - Date.parse(e.started_at)), 0);
+    },
+    async createTimes(list) {
+      const now = new Date().toISOString();
+      tmem = [...list.map((e) => ({ id: crypto.randomUUID(), created_at: now, started_at: now, ended_at: now, ...e }) as TimeEntry), ...tall()];
+      twrite();
+      return list.length;
     },
   };
 }

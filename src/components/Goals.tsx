@@ -12,7 +12,20 @@ function plural(n: number): string {
 }
 
 /** Průběh cílů hodin – v pohledu Dnes i v záložce Čas */
-export function GoalsBar({ goals, entries, today, onManage }: { goals: TimeGoal[]; entries: TimeEntry[]; today: string; onManage?: () => void }) {
+export function GoalsBar({
+  goals,
+  entries,
+  today,
+  onManage,
+  budgets = {},
+}: {
+  goals: TimeGoal[];
+  entries: TimeEntry[];
+  today: string;
+  onManage?: () => void;
+  /** u rozpočtů projektů: odpracováno za celou dobu (ms, bez běžících stopek) */
+  budgets?: Record<string, number>;
+}) {
   const [now, setNow] = useState(() => Date.now());
   const running = entries.some((e) => !e.ended_at);
   useEffect(() => {
@@ -26,19 +39,33 @@ export function GoalsBar({ goals, entries, today, onManage }: { goals: TimeGoal[
   return (
     <section className="goals" aria-label="Cíle hodin">
       {goals.map((g) => {
-        const p = goalProgress(g, entries, today, now);
+        const p = goalProgress(g, entries, today, now, budgets[g.id] ?? 0);
         const pct = Math.min(100, (p.done / p.target) * 100);
-        const planPct = g.period === "day" ? null : Math.min(100, (p.planToday / p.target) * 100);
+        const planPct = g.period === "day" || g.period === "project" ? null : Math.min(100, (p.planToday / p.target) * 100);
         const reached = p.remaining === 0;
         let sub: string;
-        if (p.dayOff) sub = p.done ? `Volný den, odpracováno ${hm(p.done)}` : "Dnes volno";
+        if (g.period === "project") {
+          const used = Math.round((p.done / p.target) * 100);
+          sub = reached ? `Rozpočet vyčerpán${p.over >= 60000 ? `, přetaženo o ${hm(p.over)}` : ""}` : `Zbývá ${hm(p.remaining)} · vyčerpáno ${used} %`;
+        } else if (p.dayOff) sub = p.done ? `Volný den, odpracováno ${hm(p.done)}` : "Dnes volno";
         else if (reached) sub = `Splněno${p.over >= 60000 ? `, navíc ${hm(p.over)}` : ""}`;
         else if (g.period === "day") sub = `Zbývá ${hm(p.remaining)}${p.finishAt ? ` · se stopkami hotovo v ${p.finishAt}` : ""}`;
         else {
           const pace = p.daysLeft > 0 ? ` · ${hm(p.perDay)} denně (${p.daysLeft} ${plural(p.daysLeft)})` : "";
           sub = `Zbývá ${hm(p.remaining)}${pace}`;
         }
-        const tone = reached ? "done" : !p.dayOff && g.period !== "day" && p.balance < -3600000 ? "behind" : "on";
+        const tone =
+          g.period === "project"
+            ? p.over >= 60000
+              ? "over"
+              : p.done / p.target >= 0.9
+                ? "behind"
+                : "on"
+            : reached
+              ? "done"
+              : !p.dayOff && g.period !== "day" && p.balance < -3600000
+                ? "behind"
+                : "on";
         return (
           <div key={g.id} className={`goal tone-${tone}${p.running ? " is-running" : ""}`} style={g.tag ? { ["--h" as string]: tagHue(g.tag.split("/")[0]) } : undefined}>
             <div className="goal-top">
@@ -53,7 +80,7 @@ export function GoalsBar({ goals, entries, today, onManage }: { goals: TimeGoal[
             </div>
             <div className="goal-sub">
               <span>{sub}</span>
-              {!p.dayOff && !reached && g.period !== "day" && Math.abs(p.balance) >= 60000 && (
+              {!p.dayOff && !reached && g.period !== "day" && g.period !== "project" && Math.abs(p.balance) >= 60000 && (
                 <span className={p.balance < 0 ? "goal-bal is-minus" : "goal-bal"}>
                   {p.balance < 0 ? `skluz ${hm(p.balance)}` : `náskok ${hm(p.balance)}`}
                 </span>
@@ -99,13 +126,15 @@ export function GoalsSheet({
   // nabídka štítků: nadřazené i podštítky, bez duplicit
   const tagOptions = [...new Set(usage.flatMap((u) => (u.name.includes("/") ? [u.name.split("/")[0], u.name] : [u.name])))];
   const h = Number(hours.replace(",", "."));
-  const valid = h > 0 && h <= 744 && workdays.length > 0;
+  const valid = h > 0 && h <= (period === "project" ? 9999 : 744) && (period === "project" ? !!tag.trim() : workdays.length > 0);
 
   const add = async () => {
     if (!valid) return;
     setBusy(true);
     try {
-      await onCreate({ tag: tag.trim().replace(/^#/, "").toLowerCase() || null, period, hours: h, workdays: [...workdays].sort() });
+      const t = tag.trim().replace(/^#/, "").toLowerCase() || null;
+      if (period === "project" && !t) return;
+      await onCreate({ tag: t, period, hours: h, workdays: [...workdays].sort() });
     } finally {
       setBusy(false);
     }
@@ -129,8 +158,9 @@ export function GoalsSheet({
             {goals.map((g) => (
               <li key={g.id}>
                 <span>
-                  <b>{g.tag ?? "Celkem"}</b> · {hoursText(g.hours)} {g.period === "day" ? "denně" : g.period === "week" ? "týdně" : "měsíčně"}
-                  <small>{g.workdays.length === 7 ? "každý den" : g.workdays.map((d) => DAYS[d - 1]).join(" ")}</small>
+                  <b>{g.tag ?? "Celkem"}</b> · {hoursText(g.hours)}{" "}
+                  {g.period === "day" ? "denně" : g.period === "week" ? "týdně" : g.period === "month" ? "měsíčně" : "rozpočet projektu"}
+                  {g.period !== "project" && <small>{g.workdays.length === 7 ? "každý den" : g.workdays.map((d) => DAYS[d - 1]).join(" ")}</small>}
                 </span>
                 <button type="button" className="btn-ghost small danger" onClick={() => onRemove(g.id)} aria-label={`Smazat cíl ${g.tag ?? "celkem"}`}>
                   Smazat
@@ -167,6 +197,7 @@ export function GoalsSheet({
                     ["day", "Den"],
                     ["week", "Týden"],
                     ["month", "Měsíc"],
+                    ["project", "Rozpočet"],
                   ] as [GoalPeriod, string][]
                 ).map(([k, label]) => (
                   <button key={k} type="button" className={period === k ? "is-active" : undefined} aria-pressed={period === k} onClick={() => setPeriod(k)}>
@@ -176,11 +207,14 @@ export function GoalsSheet({
               </div>
             </div>
             <label className="sheet-label">
-              Hodin
+              {period === "project" ? "Hodin celkem" : "Hodin"}
               <input inputMode="decimal" value={hours} onChange={(e) => setHours(e.target.value)} />
             </label>
           </div>
 
+          {period === "project" ? (
+            <p className="sheet-hint">Rozpočet projektu: odhad hodin na celý projekt, např. projekce/rd-senov 60 h. Počítá všechen čas od začátku.</p>
+          ) : (
           <div className="sheet-label">
             <span>Pracovní dny {period !== "day" && <small>(rozpočítá se na ně tempo)</small>}</span>
             <div className="daypick" role="group" aria-label="Pracovní dny">
@@ -195,6 +229,7 @@ export function GoalsSheet({
               })}
             </div>
           </div>
+          )}
 
           <div className="sheet-actions">
             <span className="spacer" />

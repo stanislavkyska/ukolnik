@@ -110,8 +110,8 @@ create table if not exists public.time_goals (
   id         uuid primary key default gen_random_uuid(),
   user_id    uuid not null default auth.uid() references auth.users(id) on delete cascade,
   tag        text,                                   -- null = všechen čas
-  period     text not null check (period in ('day', 'week', 'month')),
-  hours      numeric(6,2) not null check (hours > 0 and hours <= 744),
+  period     text not null check (period in ('day', 'week', 'month', 'project')),
+  hours      numeric(6,2) not null check (hours > 0 and hours <= 9999),
   workdays   int[] not null default '{1,2,3,4,5}',   -- 1 = po … 7 = ne
   created_at timestamptz not null default now()
 );
@@ -121,3 +121,16 @@ alter table public.time_goals enable row level security;
 drop policy if exists "own goals" on public.time_goals;
 create policy "own goals" on public.time_goals
   for all using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+-- Součet ukončených záznamů se štítkem (včetně podštítků) za celou dobu, v milisekundách
+create or replace function public.tag_time_total(p_tag text) returns bigint
+language sql stable security invoker as $$
+  select coalesce(sum(extract(epoch from (e.ended_at - e.started_at)) * 1000), 0)::bigint
+  from public.time_entries e
+  where e.user_id = auth.uid()
+    and e.ended_at is not null
+    and exists (
+      select 1 from unnest(e.tags) t
+      where lower(t) = lower(p_tag) or lower(t) like lower(p_tag) || '/%'
+    );
+$$;

@@ -79,3 +79,10 @@ test("začátek a konec v poli stopek", () => {
   assert.equal(parseTimes("výkresy 2h").from, null, "délka není čas");
   assert.equal(parseTimes("od 25:00").from, null);
 });
+
+test("rozpočet projektu: základ ze serveru + běžící stopky", () => {
+  const p = goalProgress(goal({ period: "project", hours: 60, tag: "projekce/rd-senov" }), [e("2026-10-21T09:00:00Z", null, ["projekce/rd-senov"])], today, now, 41 * 3600000);
+  assert.equal(hm(p.done), "42:00");
+  assert.equal(hm(p.remaining), "18:00");
+  assert.equal(p.running, true);
+});

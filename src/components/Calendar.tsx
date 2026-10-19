@@ -168,8 +168,22 @@ export function filterEvents(list: CalEvent[] | undefined, tag: string | null): 
   return list.filter((e) => e.tags.some((g) => normalize(g) === t || normalize(g).startsWith(t + "/")));
 }
 
-export function EventList({ events, day, onTag }: { events: CalEvent[]; day: string; onTag?: (t: string) => void }) {
+export function EventList({
+  events,
+  day,
+  onTag,
+  onLog,
+  isLogged,
+}: {
+  events: CalEvent[];
+  day: string;
+  onTag?: (t: string) => void;
+  /** zapsat událost jako odpracovaný čas */
+  onLog?: (e: CalEvent) => void;
+  isLogged?: (e: CalEvent) => boolean;
+}) {
   if (!events.length) return null;
+  const nowMs = Date.now();
   return (
     <ul className="evs">
       {events.map((e) => (
@@ -182,6 +196,15 @@ export function EventList({ events, day, onTag }: { events: CalEvent[]; day: str
               {e.location ? ` · ${e.location}` : ""}
             </span>
           </a>
+          {onLog && !e.allDay && Date.parse(e.start) <= nowMs && (
+            isLogged?.(e) ? (
+              <span className="ev-logged" title="Už zapsáno v čase">✓ zapsáno</span>
+            ) : (
+              <button type="button" className="ev-log" onClick={() => onLog(e)} title="Zapsat jako odpracovaný čas">
+                ⏱ Zapsat
+              </button>
+            )
+          )}
           {e.tags.length > 0 && (
             <span className="row-tags ev-tags">
               {e.tags.map((t) => (

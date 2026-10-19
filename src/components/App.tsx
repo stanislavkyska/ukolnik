@@ -18,6 +18,9 @@ import { TimeView } from "./TimeView";
 import { DayWeather, useWeather, WeatherCard } from "./Weather";
 import { CalendarSheet, EventList, filterEvents, useCalendar } from "./Calendar";
 import { GoalsBar, GoalsSheet } from "./Goals";
+import { QuickStart, TogglImport, WeekSheet } from "./TimeTools";
+import type { CellPlan } from "@/lib/timesheet";
+import type { CalEvent } from "@/lib/gcal";
 import type { TimeGoal } from "@/lib/goals";
 import { localToISO } from "@/lib/time";
 
@@ -48,6 +51,9 @@ export function App() {
   const [goals, setGoals] = useState<TimeGoal[]>([]);
   const [goalsError, setGoalsError] = useState(false);
   const [goalsOpen, setGoalsOpen] = useState(false);
+  const [timeMode, setTimeMode] = useState<"list" | "sheet">("list");
+  const [togglOpen, setTogglOpen] = useState(false);
+  const [budgets, setBudgets] = useState<Record<string, number>>({});
   // datum až v prohlížeči – stránka se předgeneruje při buildu
   const [today, setToday] = useState<string | null>(null);
   const quick = useRef<QuickAddHandle>(null);
@@ -210,6 +216,68 @@ export function App() {
   const running = times.find((e) => !e.ended_at) ?? null;
 
   const replaceTime = (e: TimeEntry) => setTimes((list) => list.map((x) => (x.id === e.id ? e : x)));
+
+  // rozpočty projektů: součet za celou dobu ze serveru, přepočítat při změně záznamů
+  const timesKey = times.map((t) => `${t.id}:${t.ended_at ?? ""}:${t.started_at}:${t.tags.join(",")}`).join("|");
+  useEffect(() => {
+    const projects = goals.filter((g) => g.period === "project" && g.tag);
+    if (!projects.length) return;
+    const t = setTimeout(async () => {
+      const out: Record<string, number> = {};
+      for (const g of projects) {
+        try {
+          out[g.id] = await store.tagTotal(g.tag!);
+        } catch {
+          /* bez SQL 006 – rozpočet ukáže jen běžící čas */
+        }
+      }
+      setBudgets(out);
+    }, 400);
+    return () => clearTimeout(t);
+  }, [goals, timesKey, store]);
+
+  /** výkaz: provést změnu buňky */
+  const applyCell = async (plan: CellPlan) => {
+    try {
+      for (const id of plan.remove) {
+        await store.removeTime(id);
+      }
+      const shortened: TimeEntry[] = [];
+      for (const s of plan.shorten) shortened.push(await store.updateTime(s.id, { ended_at: s.ended_at }));
+      const created = plan.create ? await store.createTime({ ...plan.create, task_id: null }) : null;
+      setTimes((list) => {
+        let next = list.filter((x) => !plan.remove.includes(x.id)).map((x) => shortened.find((s) => s.id === x.id) ?? x);
+        if (created) next = [created, ...next];
+        return next;
+      });
+    } catch (e) {
+      fail(e);
+    }
+  };
+
+  /** kalendář → čas */
+  const isLogged = (e: CalEvent) =>
+    times.some((t) => Math.abs(Date.parse(t.started_at) - Date.parse(e.start)) < 60000 && t.title.trim() === e.title.trim());
+  const logEvent = async (e: CalEvent) => {
+    const end = Math.min(Date.parse(e.end), Date.now());
+    try {
+      const created = await store.createTime({
+        title: e.title,
+        tags: e.tags,
+        task_id: null,
+        started_at: new Date(Date.parse(e.start)).toISOString(),
+        ended_at: new Date(end).toISOString(),
+      });
+      setTimes((list) => [created, ...list]);
+      if (!e.tags.length) {
+        // bez štítku by se nezapočítala do cílů – rovnou nabídnout doplnění
+        setEditingTime(created);
+        showToast({ text: "Zapsáno. Doplň štítek projektu." });
+      } else showToast({ text: "Zapsáno do času." });
+    } catch (err) {
+      fail(err);
+    }
+  };
 
   const startTimer = async (entry: { title: string; tags: string[]; task_id: string | null; started_at?: string }) => {
     try {
@@ -383,13 +451,16 @@ export function App() {
       <main className="lists">
         {view === "today" && loaded && (
           <>
-            <GoalsBar goals={goals} entries={times} today={today} />
+            <GoalsBar goals={goals} entries={times} today={today} budgets={budgets} />
+            {!timeError && (
+              <QuickStart entries={times} running={running} onStart={(f) => startTimer({ title: f.title, tags: f.tags, task_id: null })} />
+            )}
             {todayEvents.length > 0 && (
               <section className="group">
                 <div className="group-head">
                   <h2>V kalendáři</h2>
                 </div>
-                <EventList events={todayEvents} day={today} onTag={rowProps.onTag} />
+                <EventList events={todayEvents} day={today} onTag={rowProps.onTag} onLog={timeError ? undefined : logEvent} isLogged={isLogged} />
               </section>
             )}
             {late.length > 0 && (
@@ -484,7 +555,7 @@ export function App() {
                     </button>
                   )}
                 </div>
-                <EventList events={dayEvents} day={g.date ?? today} onTag={rowProps.onTag} />
+                <EventList events={dayEvents} day={g.date ?? today} onTag={rowProps.onTag} onLog={timeError ? undefined : logEvent} isLogged={isLogged} />
                 {g.tasks.length ? (
                   <ul>
                     {g.tasks.map((t) => (
@@ -519,7 +590,7 @@ export function App() {
           ) : (
             <>
             {goals.length ? (
-              <GoalsBar goals={goals} entries={times} today={today} onManage={() => setGoalsOpen(true)} />
+              <GoalsBar goals={goals} entries={times} today={today} onManage={() => setGoalsOpen(true)} budgets={budgets} />
             ) : (
               <div className="goals-cta">
                 {goalsError ? (
@@ -531,14 +602,32 @@ export function App() {
                 )}
               </div>
             )}
-            <TimeView
-              entries={times}
-              today={today}
-              onOpen={setEditingTime}
-              onAdd={() => setEditingTime("new")}
-              onRestart={(e) => startTimer({ title: e.title, tags: e.tags, task_id: e.task_id })}
-              onStop={stopTimer}
-            />
+            <QuickStart entries={times} running={running} onStart={(f) => startTimer({ title: f.title, tags: f.tags, task_id: null })} />
+            <div className="tm-head">
+              <div className="seg" role="group" aria-label="Zobrazení času">
+                <button type="button" className={timeMode === "list" ? "is-active" : undefined} aria-pressed={timeMode === "list"} onClick={() => setTimeMode("list")}>
+                  Záznamy
+                </button>
+                <button type="button" className={timeMode === "sheet" ? "is-active" : undefined} aria-pressed={timeMode === "sheet"} onClick={() => setTimeMode("sheet")}>
+                  Týdenní výkaz
+                </button>
+              </div>
+              <button type="button" className="goals-edit" onClick={() => setTogglOpen(true)}>
+                Import z Togglu
+              </button>
+            </div>
+            {timeMode === "sheet" ? (
+              <WeekSheet entries={times} today={today} usage={usage} onApply={applyCell} oldest={addDays(today, -TIME_HISTORY_DAYS + 7)} />
+            ) : (
+              <TimeView
+                entries={times}
+                today={today}
+                onOpen={setEditingTime}
+                onAdd={() => setEditingTime("new")}
+                onRestart={(e) => startTimer({ title: e.title, tags: e.tags, task_id: e.task_id })}
+                onStop={stopTimer}
+              />
+            )}
             </>
           )
         )}
@@ -621,6 +710,18 @@ export function App() {
       )}
 
       {calOpen && <CalendarSheet cal={cal} onClose={() => setCalOpen(false)} />}
+
+      {togglOpen && (
+        <TogglImport
+          existing={times}
+          onClose={() => setTogglOpen(false)}
+          onImport={async (list) => {
+            const n = await store.createTimes(list);
+            await load();
+            return n;
+          }}
+        />
+      )}
 
       {goalsOpen && (
         <GoalsSheet

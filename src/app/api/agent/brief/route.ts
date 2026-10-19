@@ -67,6 +67,7 @@ export async function GET(req: Request) {
       .eq("user_id", owner)
       .gte("started_at", localToISO(addDays(from, -1), "00:00"));
     for (const g of goals as TimeGoal[]) {
+      if (g.period === "project") continue; // rozpočty projektů jsou v aplikaci
       const p = goalProgress({ ...g, hours: Number(g.hours) }, (entries ?? []) as TimeEntry[], today);
       if (p.dayOff) continue;
       goalLines.push(`- ${goalLabel(g)}: ${hm(p.done)} z ${hoursText(Number(g.hours))}, zbývá ${hm(p.remaining)}`);
