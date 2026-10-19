@@ -23,10 +23,14 @@ export const DEFAULT_WORKDAYS = [1, 2, 3, 4, 5];
 
 const H = 3600000;
 
+/** Štítek cíle „mm“ započítá „mm“, „mm/rd-jarosek“ i „mm-rd-jarosek“ */
 export function entryMatches(e: TimeEntry, tag: string | null): boolean {
   if (!tag) return true;
   const t = normalize(tag);
-  return e.tags.some((g) => normalize(g) === t || normalize(g).startsWith(t + "/"));
+  return e.tags.some((g) => {
+    const n = normalize(g);
+    return n === t || n.startsWith(t + "/") || n.startsWith(t + "-");
+  });
 }
 
 function workdaysBetween(from: string, to: string, workdays: number[]): number {

@@ -186,7 +186,7 @@ export function GoalsSheet({
               ))}
             </datalist>
           </label>
-          <p className="sheet-hint">Štítek „projekce“ započítá i podštítky jako projekce/rd-senov.</p>
+          <p className="sheet-hint">Štítek „mm“ započítá i projekty mm-rd-jarosek nebo mm/rd-jarosek.</p>
 
           <div className="sheet-row">
             <div className="sheet-label">

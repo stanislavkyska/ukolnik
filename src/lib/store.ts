@@ -306,7 +306,7 @@ function demoStore(): TaskStore {
     async tagTotal(tag) {
       const t = tag.toLowerCase();
       return tall()
-        .filter((e) => e.ended_at && e.tags.some((g) => g.toLowerCase() === t || g.toLowerCase().startsWith(t + "/")))
+        .filter((e) => e.ended_at && e.tags.some((g) => g.toLowerCase() === t || g.toLowerCase().startsWith(t + "/") || g.toLowerCase().startsWith(t + "-")))
         .reduce((s, e) => s + (Date.parse(e.ended_at!) - Date.parse(e.started_at)), 0);
     },
     async createTimes(list) {

@@ -131,6 +131,6 @@ language sql stable security invoker as $$
     and e.ended_at is not null
     and exists (
       select 1 from unnest(e.tags) t
-      where lower(t) = lower(p_tag) or lower(t) like lower(p_tag) || '/%'
+      where lower(t) = lower(p_tag) or lower(t) like lower(p_tag) || '/%' or lower(t) like lower(p_tag) || '-%'
     );
 $$;

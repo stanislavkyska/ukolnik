@@ -86,3 +86,13 @@ test("rozpočet projektu: základ ze serveru + běžící stopky", () => {
   assert.equal(hm(p.remaining), "18:00");
   assert.equal(p.running, true);
 });
+
+import { entryMatches } from "../src/lib/goals.ts";
+test("cíl mm počítá mm-projekt i mm/projekt, ale ne mmx", () => {
+  const e = (tags: string[]) => ({ id: "x", title: "", tags, task_id: null, started_at: "", ended_at: null, created_at: "" }) as TimeEntry;
+  assert.ok(entryMatches(e(["mm-rd-jarosek"]), "mm"));
+  assert.ok(entryMatches(e(["mm/rd-jarosek"]), "mm"));
+  assert.ok(entryMatches(e(["MM"]), "mm"));
+  assert.ok(!entryMatches(e(["mmx"]), "mm"));
+  assert.ok(!entryMatches(e(["maringotka"]), "mm"));
+});
