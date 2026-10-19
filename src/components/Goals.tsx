@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { DEFAULT_WORKDAYS, goalLabel, goalProgress, hm, hoursText, type GoalPeriod, type NewTimeGoal, type TimeGoal } from "@/lib/goals";
 import { tagHue, type TagUsage } from "@/lib/tags";
+import { weekday } from "@/lib/dates";
 import type { TimeEntry } from "@/lib/time";
 
 const DAYS = ["Po", "Út", "St", "Čt", "Pá", "So", "Ne"];
@@ -34,11 +35,22 @@ export function GoalsBar({
     return () => clearInterval(t);
   }, [running]);
 
-  if (!goals.length) return null;
+  // Denní cíle po dnech (např. po 8 h, út 5 h, pá 3 h): ukázat jen ten, který platí dnes.
+  // Když dnes neplatí žádný, ukázat jeden (s textem „volný den“).
+  const wd = weekday(today);
+  const key = (g: TimeGoal) => (g.tag ?? "").toLowerCase();
+  const visible = goals.filter((g) => {
+    if (g.period !== "day" || g.workdays.includes(wd)) return true;
+    const same = goals.filter((o) => o.period === "day" && key(o) === key(g));
+    if (same.some((o) => o.workdays.includes(wd))) return false;
+    return same[0] === g;
+  });
+
+  if (!visible.length) return null;
 
   return (
     <section className="goals" aria-label="Cíle hodin">
-      {goals.map((g) => {
+      {visible.map((g) => {
         const p = goalProgress(g, entries, today, now, budgets[g.id] ?? 0);
         const pct = Math.min(100, (p.done / p.target) * 100);
         const planPct = g.period === "day" || g.period === "project" ? null : Math.min(100, (p.planToday / p.target) * 100);
