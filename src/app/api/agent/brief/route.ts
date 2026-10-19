@@ -10,6 +10,8 @@ import { TASK_COLUMNS, type Task } from "@/lib/types";
 import { eventsInRange } from "@/lib/calendar-server";
 import { eventTimeLabel, type CalEvent } from "@/lib/gcal";
 import { getAccount } from "@/lib/google";
+import { GOAL_COLUMNS, goalLabel, goalProgress, hm, hoursText, type TimeGoal } from "@/lib/goals";
+import { rangeDates, TIME_COLUMNS, localToISO, type TimeEntry } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
 
@@ -54,6 +56,23 @@ export async function GET(req: Request) {
     calendarError = e instanceof Error ? e.message : "Kalendář nedostupný";
   }
 
+  // cíle hodin (pokud jsou nastavené)
+  const goalLines: string[] = [];
+  const { data: goals } = await db.from("time_goals").select(GOAL_COLUMNS).eq("user_id", owner);
+  if (goals?.length) {
+    const from = [rangeDates("week", today).from, rangeDates("month", today).from].sort()[0];
+    const { data: entries } = await db
+      .from("time_entries")
+      .select(TIME_COLUMNS)
+      .eq("user_id", owner)
+      .gte("started_at", localToISO(addDays(from, -1), "00:00"));
+    for (const g of goals as TimeGoal[]) {
+      const p = goalProgress({ ...g, hours: Number(g.hours) }, (entries ?? []) as TimeEntry[], today);
+      if (p.dayOff) continue;
+      goalLines.push(`- ${goalLabel(g)}: ${hm(p.done)} z ${hoursText(Number(g.hours))}, zbývá ${hm(p.remaining)}`);
+    }
+  }
+
   const text = [
     `Dnes je ${dayName(today)} ${today}.`,
     events.length
@@ -61,6 +80,7 @@ export async function GET(req: Request) {
       : calendarError
         ? `\nKalendář: ${calendarError}`
         : "",
+    goalLines.length ? `\nCíle hodin:\n${goalLines.join("\n")}` : "",
     late.length ? `\nPo termínu (${late.length}):\n${late.map((t) => line(t, today, true)).join("\n")}` : "",
     now.length ? `\nDnes (${now.length}):\n${now.map((t) => line(t, today)).join("\n")}` : "\nNa dnes žádné úkoly.",
     upcoming.length ? `\nPříštích 7 dní:\n${upcoming.map((t) => line(t, today, true)).join("\n")}` : "",

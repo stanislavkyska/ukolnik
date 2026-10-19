@@ -36,6 +36,12 @@ Zkratka na počítači: `N` nebo `/` skočí do zadávání.
 - Záznam jde upravit (čas od–do, štítky), smazat, přidat ručně a ▶ u záznamu pokračuje ve stejné činnosti.
 - **CSV** se otevře v Excelu (datum, od, do, hodiny s desetinnou čárkou, činnost, štítky).
 
+### Cíle hodin
+- **Čas → Nastavit cíl hodin:** např. `projekce` 8 h denně (po–pá) a 40 h týdně. Prázdný štítek = všechen čas. Štítek `projekce` počítá i `projekce/rd-senov` atd.
+- V pohledu **Dnes** i v záložce **Čas** je průběh: kolik je odpracováno, kolik zbývá, se spuštěnými stopkami odhad, kdy bude hotovo. U týdne/měsíce tempo na zbývající pracovní dny a skluz/náskok proti plánu (čárka v pruhu).
+- **Dopsání času:** v poli stopek napiš délku – `kontrola výkresů 1h30 #projekce/rd-senov`, `porada 45min`, `statika 2,5h včera` – a tlačítko se změní na **Zapsat** (záznam končí teď, u „včera“ včera v 17:00).
+- Stopky běžící přes 10 h upozorní, že je asi zapomenuté zastavit.
+
 Štítky jsou společné pro úkoly, čas i kalendář – našeptávač nabízí všechny.
 
 ## Počasí
@@ -62,7 +68,7 @@ V hlavičce vpravo je aktuální počasí. Kliknutím rozbalíš předpověď na
 
 ### 1. Supabase (databáze a přihlášení) – zdarma
 1. Založ projekt na [supabase.com](https://supabase.com).
-2. SQL Editor → vlož obsah `supabase/schema.sql` → Run. (Při aktualizaci starší instalace stačí spustit nové soubory `supabase/00X_*.sql`.)
+2. SQL Editor → vlož obsah `supabase/schema.sql` → Run. (Při aktualizaci starší instalace stačí spustit nové soubory `supabase/00X_*.sql`, naposledy `005_goals.sql`.)
 3. Authentication → Providers → Google: zapni. Client ID a Secret vytvoříš v [Google Cloud Console](https://console.cloud.google.com/apis/credentials) (OAuth client, typ Web application, redirect URI zkopíruj ze Supabase).
 4. Authentication → URL Configuration: Site URL = adresa aplikace (např. `https://ukolnik.vercel.app`), a do Redirect URLs přidej `https://ukolnik.vercel.app/auth/callback` (a `http://localhost:3000/auth/callback` pro vývoj).
 

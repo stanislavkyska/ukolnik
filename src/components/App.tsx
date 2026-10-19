@@ -17,6 +17,9 @@ import { TimeSheet } from "./TimeSheet";
 import { TimeView } from "./TimeView";
 import { DayWeather, useWeather, WeatherCard } from "./Weather";
 import { CalendarSheet, EventList, filterEvents, useCalendar } from "./Calendar";
+import { GoalsBar, GoalsSheet } from "./Goals";
+import type { TimeGoal } from "@/lib/goals";
+import { localToISO } from "@/lib/time";
 
 type View = "today" | "plan" | "done" | "time";
 // měření času: načítáme 45 dní zpět (pokryje měsíc i týden přes přelom měsíce)
@@ -42,6 +45,9 @@ export function App() {
   const [timeError, setTimeError] = useState(false);
   const [editingTime, setEditingTime] = useState<TimeEntry | "new" | null>(null);
   const [calOpen, setCalOpen] = useState(false);
+  const [goals, setGoals] = useState<TimeGoal[]>([]);
+  const [goalsError, setGoalsError] = useState(false);
+  const [goalsOpen, setGoalsOpen] = useState(false);
   // datum až v prohlížeči – stránka se předgeneruje při buildu
   const [today, setToday] = useState<string | null>(null);
   const quick = useRef<QuickAddHandle>(null);
@@ -50,7 +56,11 @@ export function App() {
 
   const load = useCallback(async () => {
     const since = new Date(Date.now() - TIME_HISTORY_DAYS * 86400000).toISOString();
-    const [t, tm] = await Promise.allSettled([store.list(), store.listTime(since)]);
+    const [t, tm, gl] = await Promise.allSettled([store.list(), store.listTime(since), store.listGoals()]);
+    if (gl.status === "fulfilled") {
+      setGoals(gl.value);
+      setGoalsError(false);
+    } else setGoalsError(true);
     try {
       if (t.status === "fulfilled") {
         setTasks(t.value);
@@ -284,7 +294,25 @@ export function App() {
           timer
           tagUsage={usage}
           onAdd={async (p) => {
-            await startTimer({ title: p.title, tags: p.tags, task_id: null });
+            if (!p.durationMs) {
+              await startTimer({ title: p.title, tags: p.tags, task_id: null });
+              return;
+            }
+            // dopsání hotového času: končí teď, u „včera“ včera v 17:00
+            const end = p.yesterday ? Date.parse(localToISO(addDays(todayISO(), -1), "17:00")) : Date.now();
+            try {
+              const created = await store.createTime({
+                title: p.title,
+                tags: p.tags,
+                task_id: null,
+                started_at: new Date(end - p.durationMs).toISOString(),
+                ended_at: new Date(end).toISOString(),
+              });
+              setTimes((list) => [created, ...list]);
+              showToast({ text: "Čas zapsán." });
+            } catch (e) {
+              fail(e);
+            }
           }}
         />
       ) : (
@@ -324,6 +352,7 @@ export function App() {
       <main className="lists">
         {view === "today" && loaded && (
           <>
+            <GoalsBar goals={goals} entries={times} today={today} />
             {todayEvents.length > 0 && (
               <section className="group">
                 <div className="group-head">
@@ -457,6 +486,20 @@ export function App() {
               Měření času ještě není v databázi. V Supabase spusť SQL ze souboru supabase/002_time.sql a obnov stránku.
             </p>
           ) : (
+            <>
+            {goals.length ? (
+              <GoalsBar goals={goals} entries={times} today={today} onManage={() => setGoalsOpen(true)} />
+            ) : (
+              <div className="goals-cta">
+                {goalsError ? (
+                  <p className="sheet-hint">Cíle hodin ještě nejsou v databázi – v Supabase spusť SQL ze souboru supabase/005_goals.sql.</p>
+                ) : (
+                  <button type="button" className="btn-ghost small" onClick={() => setGoalsOpen(true)}>
+                    Nastavit cíl hodin (např. projekce 8 h denně)
+                  </button>
+                )}
+              </div>
+            )}
             <TimeView
               entries={times}
               today={today}
@@ -465,6 +508,7 @@ export function App() {
               onRestart={(e) => startTimer({ title: e.title, tags: e.tags, task_id: e.task_id })}
               onStop={stopTimer}
             />
+            </>
           )
         )}
       </main>
@@ -546,6 +590,30 @@ export function App() {
       )}
 
       {calOpen && <CalendarSheet cal={cal} onClose={() => setCalOpen(false)} />}
+
+      {goalsOpen && (
+        <GoalsSheet
+          goals={goals}
+          usage={countTags(times.map((e) => e.tags))}
+          onClose={() => setGoalsOpen(false)}
+          onCreate={async (g) => {
+            try {
+              const created = await store.createGoal(g);
+              setGoals((list) => [...list, created]);
+            } catch (e) {
+              fail(e);
+            }
+          }}
+          onRemove={async (id) => {
+            setGoals((list) => list.filter((g) => g.id !== id));
+            try {
+              await store.removeGoal(id);
+            } catch (e) {
+              fail(e);
+            }
+          }}
+        />
+      )}
 
       <div className="toast-wrap" aria-live="polite">
         {toast && (

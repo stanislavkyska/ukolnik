@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { durationMs, fmtClock, type TimeEntry } from "@/lib/time";
 import { Tag } from "./TagSuggest";
 
+const LONG_MS = 10 * 3600000;
+
 /** Lišta s běžícími stopkami – viditelná ve všech pohledech. */
 export function RunningTimer({ entry, onStop, onOpen }: { entry: TimeEntry; onStop: () => void; onOpen: () => void }) {
   const [now, setNow] = useState(() => Date.now());
@@ -34,7 +36,10 @@ export function RunningTimer({ entry, onStop, onOpen }: { entry: TimeEntry; onSt
           </span>
         )}
       </button>
-      <span className="running-clock">{clock}</span>
+      <span className="running-clock">
+        {clock}
+        {durationMs(entry, now) > LONG_MS && <small className="running-warn">Běží přes {LONG_MS / 3600000} h – nezapomněl jsi stopky?</small>}
+      </span>
       <button type="button" className="running-stop" onClick={onStop} aria-label="Zastavit stopky">
         <span aria-hidden />
         Stop

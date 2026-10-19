@@ -5,6 +5,7 @@
 
 import { supabaseBrowser } from "./supabase/client.ts";
 import { TIME_COLUMNS, type TimeEntry, type TimeEntryPatch } from "./time.ts";
+import { GOAL_COLUMNS, type NewTimeGoal, type TimeGoal } from "./goals.ts";
 import { TASK_COLUMNS, type Task, type TaskPatch } from "./types.ts";
 
 export interface NewTask {
@@ -41,6 +42,9 @@ export interface TaskStore {
   createTime(e: NewTimeEntry): Promise<TimeEntry>;
   updateTime(id: string, patch: TimeEntryPatch): Promise<TimeEntry>;
   removeTime(id: string): Promise<void>;
+  listGoals(): Promise<TimeGoal[]>;
+  createGoal(g: NewTimeGoal): Promise<TimeGoal>;
+  removeGoal(id: string): Promise<void>;
 }
 
 export const DEMO = !process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -121,6 +125,20 @@ function supabaseStore(): TaskStore {
       const { error } = await sb.from("time_entries").delete().eq("id", id);
       if (error) throw error;
     },
+    async listGoals() {
+      const { data, error } = await sb.from("time_goals").select(GOAL_COLUMNS).order("created_at");
+      if (error) throw error;
+      return (data as TimeGoal[]).map((g) => ({ ...g, hours: Number(g.hours) }));
+    },
+    async createGoal(g) {
+      const { data, error } = await sb.from("time_goals").insert(g).select(GOAL_COLUMNS).single();
+      if (error) throw error;
+      return { ...(data as TimeGoal), hours: Number((data as TimeGoal).hours) };
+    },
+    async removeGoal(id) {
+      const { error } = await sb.from("time_goals").delete().eq("id", id);
+      if (error) throw error;
+    },
   };
 }
 
@@ -161,6 +179,20 @@ function demoStore(): TaskStore {
     }
   };
   const all = () => (mem ??= read());
+  const gall = (): TimeGoal[] => {
+    try {
+      return JSON.parse(localStorage.getItem("ukolnik-demo-goals") ?? "[]");
+    } catch {
+      return [];
+    }
+  };
+  const gwrite = (list: TimeGoal[]) => {
+    try {
+      localStorage.setItem("ukolnik-demo-goals", JSON.stringify(list));
+    } catch {
+      /* jen v paměti */
+    }
+  };
   const apply = (t: Task, patch: TaskPatch): Task => {
     const next = { ...t, ...patch, updated_at: new Date().toISOString() };
     if (patch.done === true && !t.done) next.done_at = new Date().toISOString();
@@ -225,6 +257,17 @@ function demoStore(): TaskStore {
     async removeTime(id) {
       tmem = tall().filter((x) => x.id !== id);
       twrite();
+    },
+    async listGoals() {
+      return gall();
+    },
+    async createGoal(g) {
+      const goal: TimeGoal = { ...g, id: crypto.randomUUID(), created_at: new Date().toISOString() };
+      gwrite([...gall(), goal]);
+      return goal;
+    },
+    async removeGoal(id) {
+      gwrite(gall().filter((g) => g.id !== id));
     },
   };
 }

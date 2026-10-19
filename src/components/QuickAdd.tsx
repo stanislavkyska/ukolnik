@@ -4,15 +4,19 @@ import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "reac
 import { dateLabel, todayISO } from "@/lib/dates";
 import { parseQuickAdd, type ParsedTask } from "@/lib/parse";
 import { suggestTags, tagTokenAt, type TagUsage } from "@/lib/tags";
+import { fmtDuration, parseDuration } from "@/lib/time";
 import { Tag, TagSuggest } from "./TagSuggest";
 
 export interface QuickAddHandle {
   focus(): void;
 }
 
+/** U stopek: délka v textu („2h“) = dopsat hotový záznam místo spuštění */
+export type QuickEntry = ParsedTask & { durationMs?: number; yesterday?: boolean };
+
 interface Props {
   tagUsage: TagUsage[];
-  onAdd: (p: ParsedTask) => Promise<void>;
+  onAdd: (p: QuickEntry) => Promise<void>;
   /** režim stopek: bez termínů, jiný popisek a tlačítko */
   timer?: boolean;
 }
@@ -30,13 +34,14 @@ export const QuickAdd = forwardRef<QuickAddHandle, Props>(
 
     const token = useMemo(() => tagTokenAt(text, caret), [text, caret]);
     const known = useMemo(() => tagUsage.map((t) => t.name), [tagUsage]);
-    const parsed = useMemo(() => {
+    const parsed = useMemo((): QuickEntry | null => {
       if (!text.trim()) return null;
       const p = parseQuickAdd(text, { knownTags: known });
       if (!timer) return p;
       // u stopek se termín nehledá – „pátek“ v názvu zůstane
-      const title = text.split(/\s+/).filter((w) => !w.startsWith("#")).join(" ").trim();
-      return { ...p, title, dueDate: null, dueTime: null, deadline: null, important: false };
+      const words = text.split(/\s+/).filter((w) => !w.startsWith("#")).join(" ").trim();
+      const d = parseDuration(words);
+      return { ...p, title: d.rest, dueDate: null, dueTime: null, deadline: null, important: false, durationMs: d.ms, yesterday: d.yesterday };
     }, [text, known, timer]);
     const items = useMemo(() => {
       if (!token) return [];
@@ -133,7 +138,7 @@ export const QuickAdd = forwardRef<QuickAddHandle, Props>(
             onClick={(e) => sync(e.currentTarget)}
             onBlur={() => setClosed(true)}
             onFocus={() => setClosed(false)}
-            placeholder={timer ? "Na čem děláš? např. elektroinstalace #maringotka" : "Nový úkol… např. faktura Novák v pátek #really"}
+            placeholder={timer ? "Na čem děláš? Nebo dopiš čas: výkresy 2h #projekce" : "Nový úkol… např. faktura Novák v pátek #really"}
             aria-label={timer ? "Spustit stopky" : "Nový úkol"}
             autoComplete="off"
             enterKeyHint="done"
@@ -143,12 +148,18 @@ export const QuickAdd = forwardRef<QuickAddHandle, Props>(
             aria-activedescendant={open && items.length ? `quick-suggest-${index}` : undefined}
           />
           <button type="submit" className="quick-add" disabled={timer ? busy : !parsed || busy}>
-            {timer ? "Spustit" : "Přidat"}
+            {timer ? (parsed?.durationMs ? "Zapsat" : "Spustit") : "Přidat"}
           </button>
         </div>
         {open && <TagSuggest id="quick-suggest" items={items} index={index} query={token!.query} onPick={pick} />}
-        {parsed && (parsed.dueDate || parsed.dueTime || parsed.deadline || parsed.tags.length > 0 || parsed.important) && (
+        {parsed && (parsed.dueDate || parsed.dueTime || parsed.deadline || parsed.tags.length > 0 || parsed.important || parsed.durationMs) && (
           <div className="quick-preview" aria-live="polite">
+            {!!parsed.durationMs && (
+              <span className="pill pill-date">
+                Zapsat {fmtDuration(parsed.durationMs)}
+                {parsed.yesterday ? " včera" : ""}
+              </span>
+            )}
             {parsed.dueDate && <span className="pill pill-date">{dateLabel(parsed.dueDate, today, { long: true })}</span>}
             {parsed.dueTime && <span className="pill">{parsed.dueTime}</span>}
             {parsed.deadline && <span className="pill pill-dl">Deadline {dateLabel(parsed.deadline, today, { long: true }).toLowerCase()}</span>}

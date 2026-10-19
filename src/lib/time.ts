@@ -176,3 +176,31 @@ export function toCSV(entries: TimeEntry[]): string {
   }
   return "﻿" + rows.join("\r\n");
 }
+
+export interface ParsedDuration {
+  ms: number;
+  /** text bez délky a „včera“ */
+  rest: string;
+  yesterday: boolean;
+}
+
+/**
+ * Délka v textu pro dopsání času: „2h“, „1,5h“, „45min“, „45m“, „1h30“, „1h 30m“, „2:30h“.
+ * „včera“ = záznam patří ke včerejšku. Bez délky vrací ms = 0.
+ */
+export function parseDuration(text: string): ParsedDuration {
+  let ms = 0;
+  let yesterday = false;
+  const keep: string[] = [];
+  for (const raw of text.trim().split(/\s+/).filter(Boolean)) {
+    const t = raw.toLowerCase().replace(",", ".");
+    let m: RegExpMatchArray | null;
+    if ((m = t.match(/^(\d+(?:\.\d+)?)(h|hod|hodin|hodiny)$/))) ms += Number(m[1]) * 3600000;
+    else if ((m = t.match(/^(\d+)h(\d{1,2})(m|min)?$/))) ms += Number(m[1]) * 3600000 + Number(m[2]) * 60000;
+    else if ((m = t.match(/^(\d+):(\d{2})h$/))) ms += Number(m[1]) * 3600000 + Number(m[2]) * 60000;
+    else if ((m = t.match(/^(\d+)(m|min|minut)$/))) ms += Number(m[1]) * 60000;
+    else if (t === "vcera" || t === "včera") yesterday = true;
+    else keep.push(raw);
+  }
+  return { ms: Math.round(ms), rest: keep.join(" "), yesterday };
+}

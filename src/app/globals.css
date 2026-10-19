@@ -1013,7 +1013,7 @@ button.tag:hover {
 .tt-btn {
   width: 100%;
   display: grid;
-  grid-template-columns: minmax(90px, 30%) 1fr 84px;
+  grid-template-columns: minmax(90px, 30%) 1fr 104px;
   align-items: center;
   gap: 10px;
   border: 0;
@@ -1198,7 +1198,7 @@ button.tag:hover {
   }
 
   .tt-btn {
-    grid-template-columns: minmax(80px, 34%) 1fr 76px;
+    grid-template-columns: minmax(80px, 30%) 1fr 96px;
   }
 
   .running-clock {
@@ -1685,6 +1685,184 @@ button.tag:hover {
   .ev-tags {
     margin-left: 0;
   }
+}
+
+/* Cíle hodin */
+.goals {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 4px 0 20px;
+}
+
+.goal {
+  --h: 200;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 10px 12px;
+  background: var(--sheet);
+}
+
+.goal-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.goal-name {
+  font-weight: 700;
+}
+
+.goal-nums {
+  font-variant-numeric: tabular-nums;
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+.goal-nums b {
+  font-family: var(--display);
+  font-size: 1.25rem;
+  color: var(--ink);
+}
+
+.goal-bar {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--line) 70%, transparent);
+  margin: 8px 0 6px;
+  overflow: hidden;
+}
+
+.goal-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 5px;
+  background: hsl(var(--h) var(--tag-s) var(--tag-l));
+  transition: width 0.4s ease;
+}
+
+.goal-bar i {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: var(--ink);
+  opacity: 0.55;
+}
+
+.goal.tone-done .goal-bar span {
+  background: var(--ink);
+}
+
+.goal.is-running .goal-bar span {
+  background-image: repeating-linear-gradient(135deg, transparent 0 6px, rgb(255 255 255 / 0.25) 6px 12px);
+}
+
+.goal-sub {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 0.85rem;
+  color: var(--ink-2);
+}
+
+.goal.tone-done .goal-sub > span:first-child {
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.goal-bal {
+  white-space: nowrap;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.goal-bal.is-minus {
+  color: var(--late);
+}
+
+.goals-edit {
+  align-self: flex-start;
+  border: 0;
+  background: none;
+  padding: 0;
+  color: var(--ink-2);
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.goals-cta {
+  margin: 4px 0 16px;
+}
+
+.goal-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+
+.goal-list li {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+}
+
+.goal-list li:last-child {
+  border-bottom: 0;
+}
+
+.goal-list small {
+  display: block;
+  color: var(--ink-2);
+  font-size: 0.8rem;
+}
+
+.goal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.goal-form input:not([type]),
+.goal-form input[inputmode] {
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  background: var(--paper);
+  padding: 9px 10px;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.daypick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.daypick .chip {
+  min-width: 44px;
+}
+
+.running-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+.running-warn {
+  font-family: var(--body);
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--marker);
+  letter-spacing: 0;
 }
 
 /* Ve tmavém režimu zvýrazňovač jako podtržení – světlý text na žluté by nebyl čitelný */
