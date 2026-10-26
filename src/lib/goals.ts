@@ -1,9 +1,9 @@
 // Cíle odpracovaných hodin: „projekce 8 h denně“, „celkem 40 h týdně“…
 // Výpočet průběhu, zbývajícího času, tempa a odhadu, kdy bude hotovo.
 
-import { addDays, daysBetween, weekday } from "./dates.ts";
+import { addDays, addMonths, daysBetween, weekday } from "./dates.ts";
 import { normalize } from "./text.ts";
-import { durationMs, inRange, localTime, rangeDates, type TimeEntry } from "./time.ts";
+import { durationMs, inRange, localDate, localTime, rangeDates, type TimeEntry } from "./time.ts";
 
 export type GoalPeriod = "day" | "week" | "month" | "project";
 
@@ -55,10 +55,42 @@ export interface GoalProgress {
   daysLeft: number;
   /** potřebné tempo na den (týden/měsíc) */
   perDay: number;
+  /** převod z minulých týdnů/měsíců: kladné = náskok, záporné = skluz (ms) */
+  carry: number;
   /** běží stopky, které se do cíle počítají */
   running: boolean;
   /** pokud běží stopky: kdy bude cíl splněný (HH:MM), jen když je to ještě dnes */
   finishAt: string | null;
+}
+
+/** Začátek prvního období týdenního/měsíčního cíle (období, ve kterém byl cíl založen) */
+export function goalStart(goal: Pick<TimeGoal, "period" | "created_at">): string | null {
+  if ((goal.period !== "week" && goal.period !== "month") || !goal.created_at || isNaN(Date.parse(goal.created_at))) return null;
+  return rangeDates(goal.period, localDate(goal.created_at)).from;
+}
+
+/** Odkud je potřeba načíst záznamy, aby šel spočítat převod skluzu u všech cílů */
+export function goalsHistoryStart(goals: Pick<TimeGoal, "period" | "created_at">[]): string | null {
+  const starts = goals.map(goalStart).filter((d): d is string => !!d);
+  return starts.length ? starts.sort()[0] : null;
+}
+
+/**
+ * Převod z minulých období: součet (odpracováno − cíl) za všechna ukončená období
+ * od založení cíle. Kladné = náskok, záporné = skluz.
+ */
+export function goalCarry(goal: TimeGoal, entries: TimeEntry[], today: string, now: number = Date.now()): number {
+  const start = goalStart(goal);
+  if (!start) return 0;
+  const current = rangeDates(goal.period as "week" | "month", today).from;
+  const target = goal.hours * H;
+  let carry = 0;
+  for (let from = start; from < current; from = goal.period === "week" ? addDays(from, 7) : addMonths(from, 1)) {
+    const to = rangeDates(goal.period as "week" | "month", from).to;
+    const done = entries.filter((e) => inRange(e, from, to) && entryMatches(e, goal.tag)).reduce((s, e) => s + durationMs(e, now), 0);
+    carry += done - target;
+  }
+  return carry;
 }
 
 /**
@@ -83,6 +115,7 @@ export function goalProgress(goal: TimeGoal, entries: TimeEntry[], today: string
       perDay: 0,
       running: live.length > 0,
       finishAt: null,
+      carry: 0,
     };
   }
   const { from, to } = goal.period === "day" ? { from: today, to: today } : rangeDates(goal.period, today);
@@ -90,8 +123,10 @@ export function goalProgress(goal: TimeGoal, entries: TimeEntry[], today: string
   const done = mine.reduce((s, e) => s + durationMs(e, now), 0);
   const running = mine.some((e) => !e.ended_at);
   const target = goal.hours * H;
-  const remaining = Math.max(0, target - done);
-  const over = Math.max(0, done - target);
+  const carry = goal.period === "day" ? 0 : goalCarry(goal, entries, today, now);
+  // skluz z minula se přičte k tomu, co je potřeba dodělat (náskok naopak ubere)
+  const remaining = Math.max(0, target - carry - done);
+  const over = Math.max(0, done + carry - target);
 
   const isWorkday = goal.workdays.includes(weekday(today));
   let planToday = target;
@@ -122,11 +157,12 @@ export function goalProgress(goal: TimeGoal, entries: TimeEntry[], today: string
     remaining,
     over,
     planToday,
-    balance: done - planToday,
+    balance: done - planToday + carry,
     daysLeft,
     perDay,
     running,
     finishAt,
+    carry,
   };
 }
 

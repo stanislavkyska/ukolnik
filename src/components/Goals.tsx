@@ -64,7 +64,8 @@ export function GoalsBar({
         else if (g.period === "day") sub = `Zbývá ${hm(p.remaining)}${p.finishAt ? ` · se stopkami hotovo v ${p.finishAt}` : ""}`;
         else {
           const pace = p.daysLeft > 0 ? ` · ${hm(p.perDay)} denně (${p.daysLeft} ${plural(p.daysLeft)})` : "";
-          sub = `Zbývá ${hm(p.remaining)}${pace}`;
+          const carry = Math.abs(p.carry) >= 60000 ? ` · z minula ${p.carry < 0 ? "−" : "+"}${hm(p.carry)}` : "";
+          sub = `Zbývá ${hm(p.remaining)}${pace}${carry}`;
         }
         const tone =
           g.period === "project"

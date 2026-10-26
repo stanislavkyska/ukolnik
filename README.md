@@ -38,7 +38,7 @@ Zkratka na počítači: `N` nebo `/` skočí do zadávání.
 
 ### Cíle hodin
 - **Čas → Nastavit cíl hodin:** např. `projekce` 8 h denně (po–pá) a 40 h týdně. Prázdný štítek = všechen čas. Štítek `projekce` počítá i `projekce/rd-senov` atd., stejně tak `mm` počítá `mm-rd-jarosek`.
-- V pohledu **Dnes** i v záložce **Čas** je průběh: kolik je odpracováno, kolik zbývá, se spuštěnými stopkami odhad, kdy bude hotovo. U týdne/měsíce tempo na zbývající pracovní dny a skluz/náskok proti plánu (čárka v pruhu).
+- V pohledu **Dnes** i v záložce **Čas** je průběh: kolik je odpracováno, kolik zbývá, se spuštěnými stopkami odhad, kdy bude hotovo. U týdne/měsíce tempo na zbývající pracovní dny a skluz/náskok proti plánu (čárka v pruhu). Skluz i náskok se převádí do dalších týdnů/měsíců (počítá se od týdne, kdy byl cíl založen) – „z minula −6:24“.
 - **Dopsání času:** v poli stopek napiš délku – `kontrola výkresů 1h30 #projekce/rd-senov`, `porada 45min`, `statika 2,5h včera` – a tlačítko se změní na **Zapsat** (záznam končí teď, u „včera“ včera v 17:00).
 - **Od kdy / od–do:** `výkresy od 8:00 #projekce` spustí stopky běžící od 8:00 (funguje i `od 8,00`, `od 8`). `porada 8:00-9:30` nebo `porada od 8 do 9:30` zapíše hotový záznam, stejně tak `statika od 13:00 2h` nebo `výkaz 1h do 12:00`. S „včera“ platí pro včerejšek.
 - Stopky běžící přes 10 h upozorní, že je asi zapomenuté zastavit.

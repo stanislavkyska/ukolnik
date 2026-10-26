@@ -96,3 +96,22 @@ test("cíl mm počítá mm-projekt i mm/projekt, ale ne mmx", () => {
   assert.ok(!entryMatches(e(["mmx"]), "mm"));
   assert.ok(!entryMatches(e(["maringotka"]), "mm"));
 });
+
+test("týdenní cíl převádí skluz z minulých týdnů", () => {
+  // cíl založen ve středu 14. 10., minulý týden 19.–25. 10. odpracováno 30 h z 40, týden předtím 38 h
+  const g = goal({ period: "week", hours: 40, created_at: "2026-10-14T08:00:00Z" });
+  const list = [
+    e("2026-10-13T06:00:00Z", "2026-10-13T20:00:00Z", ["projekce"]), // 14 h
+    e("2026-10-15T06:00:00Z", "2026-10-16T06:00:00Z", ["projekce"]), // 24 h → týden 38 h, skluz 2 h
+    e("2026-10-20T06:00:00Z", "2026-10-21T12:00:00Z", ["projekce"]), // 30 h → skluz 10 h
+    e("2026-10-26T07:00:00Z", "2026-10-26T09:00:00Z", ["projekce"]), // dnes 2 h
+  ];
+  const p = goalProgress(g, list, "2026-10-26", Date.parse("2026-10-26T10:00:00Z"));
+  assert.equal(hm(p.carry), "12:00");
+  assert.ok(p.carry < 0);
+  assert.equal(hm(p.remaining), "50:00"); // 40 − 2 + 12
+  assert.equal(hm(p.balance), "18:00"); // plán po 8 h, odpracováno 2 h, skluz 12 h
+  // denní cíle nic nepřevádějí
+  const d = goalProgress(goal({ period: "day", hours: 8 }), list, "2026-10-26", Date.parse("2026-10-26T10:00:00Z"));
+  assert.equal(d.carry, 0);
+});

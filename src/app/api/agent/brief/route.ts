@@ -10,7 +10,7 @@ import { TASK_COLUMNS, type Task } from "@/lib/types";
 import { eventsInRange } from "@/lib/calendar-server";
 import { eventTimeLabel, type CalEvent } from "@/lib/gcal";
 import { getAccount } from "@/lib/google";
-import { GOAL_COLUMNS, goalLabel, goalProgress, hm, hoursText, type TimeGoal } from "@/lib/goals";
+import { GOAL_COLUMNS, goalsHistoryStart, goalLabel, goalProgress, hm, hoursText, type TimeGoal } from "@/lib/goals";
 import { rangeDates, TIME_COLUMNS, localToISO, type TimeEntry } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -60,7 +60,7 @@ export async function GET(req: Request) {
   const goalLines: string[] = [];
   const { data: goals } = await db.from("time_goals").select(GOAL_COLUMNS).eq("user_id", owner);
   if (goals?.length) {
-    const from = [rangeDates("week", today).from, rangeDates("month", today).from].sort()[0];
+    const from = [rangeDates("week", today).from, rangeDates("month", today).from, goalsHistoryStart(goals as TimeGoal[]) ?? today].sort()[0];
     const { data: entries } = await db
       .from("time_entries")
       .select(TIME_COLUMNS)
@@ -70,7 +70,8 @@ export async function GET(req: Request) {
       if (g.period === "project") continue; // rozpočty projektů jsou v aplikaci
       const p = goalProgress({ ...g, hours: Number(g.hours) }, (entries ?? []) as TimeEntry[], today);
       if (p.dayOff) continue;
-      goalLines.push(`- ${goalLabel(g)}: ${hm(p.done)} z ${hoursText(Number(g.hours))}, zbývá ${hm(p.remaining)}`);
+      const carry = Math.abs(p.carry) >= 60000 ? ` (z minula ${p.carry < 0 ? "skluz" : "náskok"} ${hm(p.carry)})` : "";
+      goalLines.push(`- ${goalLabel(g)}: ${hm(p.done)} z ${hoursText(Number(g.hours))}, zbývá ${hm(p.remaining)}${carry}`);
     }
   }
 

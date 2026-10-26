@@ -21,7 +21,7 @@ import { GoalsBar, GoalsSheet } from "./Goals";
 import { QuickStart, TogglImport, WeekSheet } from "./TimeTools";
 import type { CellPlan } from "@/lib/timesheet";
 import type { CalEvent } from "@/lib/gcal";
-import type { TimeGoal } from "@/lib/goals";
+import { goalsHistoryStart, type TimeGoal } from "@/lib/goals";
 import { localToISO } from "@/lib/time";
 
 type View = "today" | "plan" | "done" | "time";
@@ -61,8 +61,20 @@ export function App() {
   const toastTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   const load = useCallback(async () => {
-    const since = new Date(Date.now() - TIME_HISTORY_DAYS * 86400000).toISOString();
-    const [t, tm, gl] = await Promise.allSettled([store.list(), store.listTime(since), store.listGoals()]);
+    const goalsP = store.listGoals();
+    // záznamy za posledních 45 dní, u týdenních/měsíčních cílů od jejich založení (kvůli převodu skluzu)
+    const timesP = goalsP
+      .catch(() => [] as TimeGoal[])
+      .then((gl) => {
+        let since = new Date(Date.now() - TIME_HISTORY_DAYS * 86400000).toISOString();
+        const hist = goalsHistoryStart(gl);
+        if (hist) {
+          const h = localToISO(addDays(hist, -1), "00:00");
+          if (h < since) since = h;
+        }
+        return store.listTime(since);
+      });
+    const [t, tm, gl] = await Promise.allSettled([store.list(), timesP, goalsP]);
     if (gl.status === "fulfilled") {
       setGoals(gl.value);
       setGoalsError(false);

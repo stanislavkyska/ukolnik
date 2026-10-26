@@ -97,14 +97,22 @@ function supabaseStore(): TaskStore {
       window.location.href = "/login";
     },
     async listTime(sinceISO) {
-      const { data, error } = await sb
-        .from("time_entries")
-        .select(TIME_COLUMNS)
-        .or(`started_at.gte.${sinceISO},ended_at.is.null`)
-        .order("started_at", { ascending: false })
-        .limit(2000);
-      if (error) throw error;
-      return data as TimeEntry[];
+      // Supabase vrací max. 1000 řádků na dotaz – načítat po stránkách
+      const out: TimeEntry[] = [];
+      const PAGE = 1000;
+      for (let from = 0; from < 50000; from += PAGE) {
+        const { data, error } = await sb
+          .from("time_entries")
+          .select(TIME_COLUMNS)
+          .or(`started_at.gte.${sinceISO},ended_at.is.null`)
+          .order("started_at", { ascending: false })
+          .order("id")
+          .range(from, from + PAGE - 1);
+        if (error) throw error;
+        out.push(...(data as TimeEntry[]));
+        if (!data || data.length < PAGE) break;
+      }
+      return out;
     },
     async startTimer(e) {
       const start = e.started_at ?? new Date().toISOString();
