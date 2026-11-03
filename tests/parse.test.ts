@@ -118,3 +118,12 @@ test("deadline vs. kdy na tom dělat", () => {
   assert.equal(p("výkresy do ne").deadline, "2026-10-18");
   assert.equal(p("zavolat zítra").deadline, null);
 });
+
+import { matchTags } from "../src/lib/tags.ts";
+test("našeptávání štítků ze slova bez #", () => {
+  const usage = [{ name: "mm-rd-jarosek", count: 5 }, { name: "mm-garaz-vratimov", count: 3 }, { name: "jaro-zahrada", count: 1 }, { name: "maringotka", count: 9 }];
+  assert.deepEqual(matchTags("jaro", usage).map((t) => t.name), ["jaro-zahrada", "mm-rd-jarosek"]);
+  assert.deepEqual(matchTags("VRAT", usage).map((t) => t.name), ["mm-garaz-vratimov"]);
+  assert.deepEqual(matchTags("ja", usage), []); // krátké slovo nic nenabízí
+  assert.deepEqual(matchTags("jaro", usage, 6, ["jaro-zahrada"]).map((t) => t.name), ["mm-rd-jarosek"]);
+});

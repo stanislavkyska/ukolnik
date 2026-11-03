@@ -43,6 +43,37 @@ export function countTags(lists: string[][]): TagUsage[] {
   return [...map.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name, "cs"));
 }
 
+/**
+ * Přísnější hledání pro slova bez # (pole stopek): jen štítky, které dané
+ * písmena opravdu obsahují – „jaro“ → „mm-rd-jarosek“. Bez překlepových shod,
+ * aby se nabídka nepletla do běžného textu.
+ */
+export function matchTags(query: string, usage: TagUsage[], limit = 6, exclude: string[] = []): TagUsage[] {
+  const q = normalize(query);
+  if (q.length < 3) return [];
+  const skip = new Set(exclude.map(normalize));
+  return usage
+    .map((tag) => {
+      const n = normalize(tag.name);
+      if (skip.has(n)) return null;
+      const score = n.startsWith(q) ? 3 : n.split(/[-_/]/).some((p) => p.startsWith(q)) ? 2 : n.includes(q) ? 1 : 0;
+      return score ? { tag, score } : null;
+    })
+    .filter((x): x is { tag: TagUsage; score: number } => !!x)
+    .sort((a, b) => b.score - a.score || b.tag.count - a.tag.count || a.tag.name.localeCompare(b.tag.name, "cs"))
+    .slice(0, limit)
+    .map((x) => x.tag);
+}
+
+/** Slovo pod kurzorem bez ohledu na # (pro našeptávání ve stopkách) */
+export function wordAt(text: string, caret: number): { start: number; end: number; word: string } {
+  let start = caret;
+  while (start > 0 && !/\s/.test(text[start - 1])) start--;
+  let end = caret;
+  while (end < text.length && !/\s/.test(text[end])) end++;
+  return { start, end, word: text.slice(start, end) };
+}
+
 /** Slovo pod kurzorem, pokud začíná # – pro otevření nabídky v poli. */
 export function tagTokenAt(text: string, caret: number): { start: number; end: number; query: string } | null {
   let start = caret;

@@ -29,7 +29,7 @@ Zkratka na počítači: `N` nebo `/` skočí do zadávání.
 ## Měření času
 
 - **Stopky u úkolu:** tlačítko ▶ vpravo u úkolu spustí stopky s názvem a štítky úkolu. Znovu klik = stop.
-- **Stopky na cokoli:** v záložce **Čas** napiš do pole dole, na čem děláš (`elektroinstalace #maringotka`), a dej Spustit.
+- **Stopky na cokoli:** v záložce **Čas** napiš do pole dole, na čem děláš (`elektroinstalace #maringotka`), a dej Spustit. Štítky se nabízí i bez # – napiš `jaro` a nabídne se `mm-rd-jarosek` (vybereš klepnutím, Tabem nebo šipkou + Enter; samotný Enter spustí stopky).
 - Běží vždy jen jedny stopky. Spuštění nových ty předchozí zastaví. Lišta s běžícími stopkami je vidět ve všech záložkách.
 - **Přehled:** Dnes / Týden / Měsíc, součty podle štítků. Kliknutím na štítek se vyfiltrují záznamy a CSV export.
 - **Podštítky:** `#projekce/rd-senov`, `#projekce/bd-poruba` se sečtou i pod `projekce`. Hodí se na projekty v kanceláři.

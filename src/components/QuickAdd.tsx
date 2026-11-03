@@ -3,7 +3,7 @@
 import { forwardRef, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { dateLabel, todayISO } from "@/lib/dates";
 import { parseQuickAdd, type ParsedTask } from "@/lib/parse";
-import { suggestTags, tagTokenAt, type TagUsage } from "@/lib/tags";
+import { matchTags, suggestTags, tagTokenAt, wordAt, type TagUsage } from "@/lib/tags";
 import { fmtDuration, parseDuration, parseTimes } from "@/lib/time";
 import { Tag, TagSuggest } from "./TagSuggest";
 
@@ -39,11 +39,22 @@ export const QuickAdd = forwardRef<QuickAddHandle, Props>(
     const [index, setIndex] = useState(0);
     const [closed, setClosed] = useState(false);
     const [busy, setBusy] = useState(false);
+    /** uživatel v nabídce šipkou vybral položku (u slov bez # teprve pak Enter vybírá) */
+    const [navigated, setNavigated] = useState(false);
     const input = useRef<HTMLInputElement>(null);
 
     useImperativeHandle(ref, () => ({ focus: () => input.current?.focus() }));
 
-    const token = useMemo(() => tagTokenAt(text, caret), [text, caret]);
+    const hashToken = useMemo(() => tagTokenAt(text, caret), [text, caret]);
+    // u stopek našeptávat štítky i ze slov bez # („jaro“ → #mm-rd-jarosek)
+    const softToken = useMemo(() => {
+      if (!timer || hashToken) return null;
+      const w = wordAt(text, caret);
+      if (w.word.length < 3 || /\d/.test(w.word) || /^(od|do|včera|vcera)$/i.test(w.word)) return null;
+      return { start: w.start, end: w.end, query: w.word };
+    }, [timer, hashToken, text, caret]);
+    const token = hashToken ?? softToken;
+    const soft = !hashToken && !!softToken;
     const known = useMemo(() => tagUsage.map((t) => t.name), [tagUsage]);
     const parsed = useMemo((): QuickEntry | null => {
       if (!text.trim()) return null;
@@ -69,9 +80,10 @@ export const QuickAdd = forwardRef<QuickAddHandle, Props>(
     const items = useMemo(() => {
       if (!token) return [];
       const already = parsed?.tags.filter((t) => t.toLowerCase() !== token.query.toLowerCase()) ?? [];
+      if (soft) return matchTags(token.query, tagUsage, 6, parsed?.tags ?? []);
       return suggestTags(token.query, tagUsage, 6, already);
-    }, [token, tagUsage, parsed]);
-    const open = !!token && !closed && (items.length > 0 || token.query.length > 0);
+    }, [token, soft, tagUsage, parsed]);
+    const open = !!token && !closed && (soft ? items.length > 0 : items.length > 0 || token.query.length > 0);
 
     const pick = (name: string) => {
       if (!token) return;
@@ -81,6 +93,7 @@ export const QuickAdd = forwardRef<QuickAddHandle, Props>(
       const pos = before.length + name.length + 2;
       setText(next);
       setIndex(0);
+      setNavigated(false);
       requestAnimationFrame(() => {
         input.current?.setSelectionRange(pos, pos);
         setCaret(pos);
@@ -106,15 +119,19 @@ export const QuickAdd = forwardRef<QuickAddHandle, Props>(
       if (open && items.length) {
         if (e.key === "ArrowDown") {
           e.preventDefault();
-          setIndex((i) => (i + 1) % items.length);
+          if (soft && !navigated) setIndex(0);
+          else setIndex((i) => (i + 1) % items.length);
+          setNavigated(true);
           return;
         }
         if (e.key === "ArrowUp") {
           e.preventDefault();
           setIndex((i) => (i - 1 + items.length) % items.length);
+          setNavigated(true);
           return;
         }
-        if (e.key === "Tab" || e.key === "Enter") {
+        // u slova bez # Enter odešle text, štítek vybere Tab, šipka + Enter nebo klik
+        if (e.key === "Tab" || (e.key === "Enter" && (!soft || navigated))) {
           e.preventDefault();
           pick(items[Math.min(index, items.length - 1)].name);
           return;
@@ -157,6 +174,7 @@ export const QuickAdd = forwardRef<QuickAddHandle, Props>(
               sync(e.target);
               setClosed(false);
               setIndex(0);
+              setNavigated(false);
             }}
             onKeyDown={onKeyDown}
             onKeyUp={(e) => sync(e.currentTarget)}
@@ -170,13 +188,13 @@ export const QuickAdd = forwardRef<QuickAddHandle, Props>(
             role="combobox"
             aria-expanded={open}
             aria-controls="quick-suggest"
-            aria-activedescendant={open && items.length ? `quick-suggest-${index}` : undefined}
+            aria-activedescendant={open && items.length && (!soft || navigated) ? `quick-suggest-${index}` : undefined}
           />
           <button type="submit" className="quick-add" disabled={timer ? busy : !parsed || busy}>
             {timer ? (parsed?.durationMs || (parsed?.fromTime && parsed?.toTime) ? "Zapsat" : "Spustit") : "Přidat"}
           </button>
         </div>
-        {open && <TagSuggest id="quick-suggest" items={items} index={index} query={token!.query} onPick={pick} />}
+        {open && <TagSuggest id="quick-suggest" items={items} index={soft && !navigated ? -1 : index} query={soft ? "" : token!.query} onPick={pick} />}
         {parsed && (parsed.dueDate || parsed.dueTime || parsed.deadline || parsed.tags.length > 0 || parsed.important || parsed.durationMs || parsed.fromTime || parsed.toTime) && (
           <div className="quick-preview" aria-live="polite">
             {timer && (parsed.fromTime || parsed.toTime || !!parsed.durationMs) && (
