@@ -294,7 +294,8 @@ export function App() {
   const startTimer = async (entry: { title: string; tags: string[]; task_id: string | null; started_at?: string }) => {
     try {
       const { started, stopped } = await store.startTimer(entry);
-      setTimes((list) => [started, ...list.map((x) => (stopped && x.id === stopped.id ? stopped : x))]);
+      const byId = new Map(stopped.map((x) => [x.id, x]));
+      setTimes((list) => [started, ...list.filter((x) => x.id !== started.id).map((x) => byId.get(x.id) ?? x)]);
     } catch (e) {
       fail(e);
     }
@@ -303,9 +304,12 @@ export function App() {
   const stopTimer = async () => {
     if (!running) return;
     const ended_at = new Date().toISOString();
-    replaceTime({ ...running, ended_at });
+    // zastavit všechny běžící (i ty spuštěné na jiném zařízení)
+    setTimes((list) => list.map((x) => (x.ended_at ? x : { ...x, ended_at })));
     try {
-      replaceTime(await store.updateTime(running.id, { ended_at }));
+      const stopped = await store.stopAll();
+      const byId = new Map(stopped.map((x) => [x.id, x]));
+      setTimes((list) => list.map((x) => byId.get(x.id) ?? x));
     } catch (e) {
       fail(e);
     }

@@ -37,7 +37,9 @@ export interface TaskStore {
   /** záznamy času od data (ISO okamžik) + případné běžící stopky */
   listTime(sinceISO: string): Promise<TimeEntry[]>;
   /** zastaví běžící stopky a spustí nové */
-  startTimer(e: NewTimeEntry): Promise<{ started: TimeEntry; stopped: TimeEntry | null }>;
+  startTimer(e: NewTimeEntry): Promise<{ started: TimeEntry; stopped: TimeEntry[] }>;
+  /** zastaví všechny běžící stopky */
+  stopAll(): Promise<TimeEntry[]>;
   /** ruční záznam (už ukončený) */
   createTime(e: NewTimeEntry): Promise<TimeEntry>;
   updateTime(id: string, patch: TimeEntryPatch): Promise<TimeEntry>;
@@ -116,27 +118,45 @@ function supabaseStore(): TaskStore {
     },
     async startTimer(e) {
       const start = e.started_at ?? new Date().toISOString();
-      // běžící stopky skončí tam, kde začínají nové (ale ne dřív, než samy začaly)
-      const { data: run, error: e0 } = await sb.from("time_entries").select(TIME_COLUMNS).is("ended_at", null);
-      if (e0) throw e0;
-      let stopped: TimeEntry | null = null;
-      for (const r of (run ?? []) as TimeEntry[]) {
-        const { data, error } = await sb
-          .from("time_entries")
-          .update({ ended_at: stopAt(r, start) })
-          .eq("id", r.id)
-          .select(TIME_COLUMNS)
-          .single();
+      const stopRunning = async (start: string, except?: TimeEntry) => {
+        const { data: run, error } = await sb.from("time_entries").select(TIME_COLUMNS).is("ended_at", null);
         if (error) throw error;
-        stopped = data as TimeEntry;
-      }
+        const out: TimeEntry[] = [];
+        for (const r of (run ?? []) as TimeEntry[]) {
+          // po vložení: zastavit jen starší (při dvojkliku / spuštění na dvou zařízeních vyhrají nejnovější)
+          if (except && (r.id === except.id || r.created_at > except.created_at)) continue;
+          const { data, error: e2 } = await sb
+            .from("time_entries")
+            .update({ ended_at: stopAt(r, start) })
+            .eq("id", r.id)
+            .is("ended_at", null)
+            .select(TIME_COLUMNS);
+          if (e2) throw e2;
+          out.push(...((data ?? []) as TimeEntry[]));
+        }
+        return out;
+      };
+      // běžící stopky skončí tam, kde začínají nové (ale ne dřív, než samy začaly)
+      const stopped = await stopRunning(start);
       const { data, error } = await sb
         .from("time_entries")
         .insert({ title: e.title, tags: e.tags, task_id: e.task_id, started_at: start })
         .select(TIME_COLUMNS)
         .single();
       if (error) throw error;
-      return { started: data as TimeEntry, stopped };
+      const started = data as TimeEntry;
+      // pojistka: cokoli, co mezitím spustilo jiné zařízení / druhé kliknutí
+      stopped.push(...(await stopRunning(start, started)));
+      return { started, stopped };
+    },
+    async stopAll() {
+      const { data, error } = await sb
+        .from("time_entries")
+        .update({ ended_at: new Date().toISOString() })
+        .is("ended_at", null)
+        .select(TIME_COLUMNS);
+      if (error) throw error;
+      return (data ?? []) as TimeEntry[];
     },
     async createTime(e) {
       const { data, error } = await sb.from("time_entries").insert(e).select(TIME_COLUMNS).single();
@@ -275,12 +295,29 @@ function demoStore(): TaskStore {
     async startTimer(e) {
       const now = new Date().toISOString();
       const start = e.started_at ?? now;
-      let stopped: TimeEntry | null = null;
-      tmem = tall().map((x) => (x.ended_at ? x : (stopped = { ...x, ended_at: stopAt(x, start) })));
+      const stopped: TimeEntry[] = [];
+      tmem = tall().map((x) => {
+        if (x.ended_at) return x;
+        const y = { ...x, ended_at: stopAt(x, start) };
+        stopped.push(y);
+        return y;
+      });
       const started: TimeEntry = { id: crypto.randomUUID(), created_at: now, title: e.title, tags: e.tags, task_id: e.task_id, started_at: start, ended_at: null };
       tmem = [started, ...tmem];
       twrite();
       return { started, stopped };
+    },
+    async stopAll() {
+      const now = new Date().toISOString();
+      const stopped: TimeEntry[] = [];
+      tmem = tall().map((x) => {
+        if (x.ended_at) return x;
+        const y = { ...x, ended_at: now };
+        stopped.push(y);
+        return y;
+      });
+      twrite();
+      return stopped;
     },
     async createTime(e) {
       const now = new Date().toISOString();
